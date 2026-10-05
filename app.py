@@ -70,7 +70,6 @@ def login():
             flash('Invalid username or password', 'error')
             
     return render_template_string(BASE_LAYOUT + """
-    {% block content %}
     <div class="card p-4 shadow-sm text-dark">
         <h3 class="text-center mb-4 font-weight-bold">Account Login</h3>
         <form method="POST">
@@ -88,7 +87,6 @@ def login():
             <a href="{{ url_for('register') }}">Create New Account</a>
         </div>
     </div>
-    {% endblock %}
     """)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -110,7 +108,6 @@ def register():
             return redirect(url_for('login'))
             
     return render_template_string(BASE_LAYOUT + """
-    {% block content %}
     <div class="card p-4 shadow-sm text-dark">
         <h3 class="text-center mb-4 font-weight-bold">Register</h3>
         <form method="POST">
@@ -135,7 +132,6 @@ def register():
             <a href="{{ url_for('login') }}">Back to Login</a>
         </div>
     </div>
-    {% endblock %}
     """)
 
 @app.route('/dashboard')
@@ -146,7 +142,6 @@ def dashboard():
         all_users = User.query.all()
         
     return render_template_string(BASE_LAYOUT + """
-    {% block content %}
     <div class="card p-4 shadow-sm text-dark">
         <h3 class="mb-3">Welcome, {{ current_user.username }} ({{ current_user.role }})</h3>
         
@@ -176,7 +171,6 @@ def dashboard():
         
         <a href="{{ url_for('logout') }}" class="btn btn-danger mt-4">Logout</a>
     </div>
-    {% endblock %}
     """, all_users=all_users)
 
 @app.route('/logout')
