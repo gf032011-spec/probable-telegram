@@ -7,11 +7,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-# SYSTEM OVERRIDE: Uses the direct root folder path to bypass folder permission errors on Render
+# FIXED DATABASE CONFIGURATION FOR RENDER
 if os.path.exists('/data') or os.environ.get('RENDER'):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/online_database.db'
 else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
+    os.makedirs('data', exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -100,7 +101,7 @@ def login():
             else:
                 flash('Invalid username or password', 'error')
         except Exception:
-            flash('Database configuration error. Rebuilding table structures.', 'error')
+            flash('Database configuration error.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
@@ -224,7 +225,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# Isolated execution architecture block
+# Database table creator logic block
 with app.app_context():
     db.create_all()
     try:
