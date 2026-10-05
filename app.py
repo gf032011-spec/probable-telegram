@@ -5,11 +5,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-# Uses environment variable on Render, falls back to a default locally
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-# Point to the Render Persistent Disk mount point (/data/)
-# When running locally, it creates a folder named 'data' automatically.
 if not os.path.exists('/data') and not os.environ.get('RENDER'):
     os.makedirs('data', exist_ok=True)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
@@ -22,9 +19,6 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# ==========================================
-# DATABASE MODEL
-# ==========================================
 class User(UserMixin, db.Model):
     __tablename__ = 'Users'
     id = db.Column(db.Integer, primary_key=True)
@@ -36,9 +30,6 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ==========================================
-# HTML LAYOUT (FIXED: Built-in Custom CSS)
-# ==========================================
 BASE_LAYOUT = """
 <!DOCTYPE html>
 <html>
@@ -61,9 +52,6 @@ BASE_LAYOUT = """
 </html>
 """
 
-# ==========================================
-# ROUTES
-# ==========================================
 @app.route('/')
 def index():
     return redirect(url_for('login'))
