@@ -35,7 +35,7 @@ BASE_LAYOUT = """
 <html>
 <head>
     <title>Cloud Web Application</title>
-    <link rel="stylesheet" href="https://picocss.com">
+    <link rel="stylesheet" href="https://cloudflare.com">
 </head>
 <body class="bg-light">
     <div class="container mt-5" style="max-width: 600px;">
