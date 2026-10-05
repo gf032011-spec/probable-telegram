@@ -1,7 +1,7 @@
 # =====================================================================
 # SYSTEM RUN MODULE: FULL-STACK ABDELA E-MONEY SIMULATION PLATFORM
 # ARCHITECTURE: STREAMLIT WEB APP | STORAGE: SQLITE RELATIONAL DB
-# ANALYTICS ENGINE: PLOTLY GRAPHICS | ALERT LAYER: TWILIO SMS SIMULATOR
+# ANALYTICS ENGINE: PLOTLY GRAPHICS | ALERT LAYER: LIVE SMARTPHONE SMS
 # =====================================================================
 
 import datetime
@@ -9,6 +9,7 @@ import random
 import sqlite3
 import pandas as pd
 import plotly.express as px
+import requests
 import streamlit as st
 
 # =====================================================================
@@ -102,36 +103,30 @@ init_db()
 
 
 # =====================================================================
-# 💬 TWILIO STRUCTURAL INTERFACE: SMS ROUTING DISCLOSURE
+# 💬 REAL TELEGRAM OUTREACH MATRIX: LIVE REAL SMARTPHONE SMS
 # =====================================================================
-def simulate_twilio_sms_dispatch(phone_route, text_payload):
-    """Simulates programmatic telecom outreach metrics bypassing live API expense
+def fire_real_smartphone_alert(message_body):
+    """Routes application event data text payloads instantly to the user's
 
-    limits while capturing the structural logs securely.
+    live physical smartphone device using official Telegram API gateways.
     """
-    st.toast(f"💬 SMS Sent via Twilio Gateway to {phone_route}!", icon="📱")
-    with st.expander("📬 Outbound Twilio API SMS Console Log (Debug Network)"):
-        st.code(
-            f"""
-        -------------------------------------------------------------
-        TWILIO TELECOM INBOUND SMS GATEWAY ROUTER
-        -------------------------------------------------------------
-        SID: SM{random.randint(100000, 999999)}ab890cd12345e6789f
-        To: {phone_route}
-        From: +14155554321 (Twilio Shortcode Proxy)
-        Status: Dispatched / Delivered
-        Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
-        Body: {text_payload}
-        -------------------------------------------------------------
-        """,
-            language="text",
-        )
+    # 📝 ENTER YOUR TELEGRAM CREDENTIALS HERE TO START RECEIVING REAL TEXTS
+    BOT_TOKEN = st.session_state.get("tg_bot_token", "")
+    CHAT_ID = st.session_state.get("tg_chat_id", "")
+    
+    if BOT_TOKEN and CHAT_ID:
+        try:
+            telegram_url = f"https://telegram.org{BOT_TOKEN}/sendMessage"
+            payload = {"chat_id": CHAT_ID, "text": f"📱 [Abdela e-money]\n{message_body}", "parse_mode": "Markdown"}
+            requests.post(telegram_url, json=payload, timeout=5)
+        except Exception:
+            pass
 
 
 # =====================================================================
 # 📱 APP FRAMEWORK INTERFACE INTERACTIVES
 # =====================================================================
-st.image("https://icons8.com", width=80)
+st.image("https://icons8.com", width=90)
 
 st.title("📱 Abdela e-money FinTech Core Platform")
 st.caption(
@@ -158,21 +153,26 @@ if subscriber_df.empty:
         "SELECT * FROM accounts WHERE phone_number='0900223344'", conn
     )
 
-subscriber_name = subscriber_df["subscriber_name"].iloc[0]
-wallet_balance = float(subscriber_df["wallet_balance"].iloc[0])
-security_pin_stored = str(subscriber_df["security_pin"].iloc[0])
+subscriber_name = subscriber_df["subscriber_name"].iloc
+wallet_balance = float(subscriber_df["wallet_balance"].iloc)
+security_pin_stored = str(subscriber_df["security_pin"].iloc)
 
 # =====================================================================
 # 👤 PROFILE PANEL (SIDEBAR ENVIRONMENT MODULE)
 # =====================================================================
 with st.sidebar:
     st.header("👤 Platform Profile")
-    st.image("https://icons8.com", width=60)
+    st.image("https://icons8.com", width=65)
     st.subheader(subscriber_name)
     st.info("📞 Account Line: +251 900 223 344")
-
-    # Render persistent balance metric parameter card
     st.metric(label="Abdela e-money Balance", value=f"{wallet_balance:,.2f} ETB")
+    
+    st.write("---")
+    st.write("⚙️ **Live Phone SMS Setup**")
+    st.caption("Paste your free Telegram configuration parameters here to start seeing real, instant transaction text alerts on your physical phone device screen!")
+    st.text_input("Enter Telegram Bot Token", key="tg_bot_token", type="password", placeholder="123456789:ABC...")
+    st.text_input("Enter Telegram Chat ID", key="tg_chat_id", placeholder="987654321")
+    
     st.write("---")
     st.caption(
         "⚙️ **Engine Config:** Connected to `abdela_emoney_ledger.db` (SQLite3 engine active)."
@@ -181,18 +181,56 @@ with st.sidebar:
 # =====================================================================
 # 💳 WORKSPACE FUNCTIONAL CHANNELS (TAB LAYOUT MATRICES)
 # =====================================================================
-tab_deposit, tab_transfer, tab_airtime, tab_utility, tab_interest, tab_pin, tab_analytics, tab_db_view = st.tabs(
+tabs = st.tabs(
     [
+        "👥 Customer Registration",
         "📥 Cash Deposit",
         "💸 Send Money",
         "📞 Buy Airtime",
         "🛍️ Utility Settlement",
         "📈 Savings Estimator",
         "🔒 Change PIN",
+        "💱 Currency Exchange",
+        "📄 Invoice Builder",
         "📊 Plotly Analytics",
         "🗄️ Relational Database",
     ]
 )
+tab_register, tab_deposit, tab_transfer, tab_airtime, tab_utility, tab_interest, tab_pin, tab_exchange, tab_invoice, tab_analytics, tab_db_view = tabs
+
+# NEW CHANNEL: DYNAMIC CUSTOMER REGISTRATION ENGAGEMENT INTERFACE
+with tab_register:
+    st.subheader("👥 Core Subscriber Registration Portal")
+    st.write("Provision new accounts vectors cleanly inside the master relational ledger system tables maps.")
+    
+    with st.form("customer_registration_form", clear_on_submit=True):
+        reg_name = st.text_input("Full Legal Subscriber Name", placeholder="Abebe Kebede")
+        reg_phone = st.text_input("Mobile Account String (Phone Number)", placeholder="09xxxxxxxx")
+        reg_pin = st.text_input("Set 4-Digit Security Authorization PIN", type="password", max_chars=4)
+        reg_deposit = st.number_input("Opening Capital Baseline Deposit (ETB)", min_value=0.00, value=500.00, step=50.00)
+        
+        submit_registration = st.form_submit_button("Register New Subscriber")
+        
+        if submit_registration:
+            if not reg_name or len(reg_phone) < 9 or len(reg_pin) != 4:
+                st.error("Registration Aborted: Empty data inputs or invalid parameter scale metrics provided.")
+            else:
+                try:
+                    cursor = conn.cursor()
+                    timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    
+                    # Write the brand new customer account into your database files records logs
+                    cursor.execute("INSERT INTO accounts (phone_number, subscriber_name, wallet_balance, security_pin) VALUES (?, ?, ?, ?)", (reg_phone, reg_name, reg_deposit, reg_pin))
+                    cursor.execute("INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status) VALUES (?, 'Registration', ?, ?, 'Success')", (timestamp_str, f"New User: {reg_name}", reg_deposit))
+                    conn.commit()
+                    
+                    # FIRE REAL TELEGRAM PHONE OUTREACH TEXT
+                    real_text = f"New Customer Registration Confirmed!\nName: {reg_name}\nPhone: +251 {reg_phone[1:]}\nOpening Balance: {reg_deposit:.2f} ETB\nTimestamp: {timestamp_str}."
+                    fire_real_smartphone_alert(real_text)
+                    
+                    st.success(f"Success! Account for '{reg_name}' provisioned cleanly inside local ledger files.")
+                except sqlite3.IntegrityError:
+                    st.error("Exception: A subscriber line matching that phone string parameters is already logged.")
 
 # CHANNEL 0: SIMULATED AGENT CASH-IN DEPOSIT SYSTEM
 with tab_deposit:
@@ -215,21 +253,13 @@ with tab_deposit:
             new_balance = wallet_balance + deposit_amount
             timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             
-            cursor.execute(
-                "UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'",
-                (new_balance,),
-            )
-            cursor.execute(
-                """
-                INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status)
-                VALUES (?, 'Deposit', ?, ?, 'Success')
-                """,
-                (timestamp_str, f"Agent Deposit ({agent_id})", deposit_amount),
-            )
+            cursor.execute("UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'", (new_balance,))
+            cursor.execute("INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status) VALUES (?, 'Deposit', ?, ?, 'Success')", (timestamp_str, f"Agent Deposit ({agent_id})", deposit_amount))
             conn.commit()
             
-            sms_payload = f"Abdela e-money Alert: {deposit_amount:.2f} ETB deposited at Agent {agent_id} on {timestamp_str}. New balance: {new_balance:.2f} ETB."
-            simulate_twilio_sms_dispatch("0900223344", sms_payload)
+            # FIRE REAL TELEGRAM PHONE OUTREACH TEXT
+            real_text = f"Cash Deposit Confirmed!\nAgent ID: {agent_id}\nAmount: +{deposit_amount:,.2f} ETB\nNew Wallet Balance: {new_balance:,.2f} ETB."
+            fire_real_smartphone_alert(real_text)
             
             st.success(f"Deposit Successful! {deposit_amount:,.2f} ETB has been added to your test wallet.")
             st.rerun()
@@ -238,15 +268,9 @@ with tab_deposit:
 with tab_transfer:
     st.subheader("Secure Peer-to-Peer Transfer Pipeline")
     with st.form("p2p_transfer_form", clear_on_submit=True):
-        recipient_phone = st.text_input(
-            "Recipient Phone Account String", placeholder="09xxxxxxxx"
-        )
-        transfer_value = st.number_input(
-            "Transaction Volume Scale (ETB)", min_value=5.00, step=5.00
-        )
-        transaction_pin = st.text_input(
-            "Security PIN", type="password", max_chars=4
-        )
+        recipient_phone = st.text_input("Recipient Phone Account String", placeholder="09xxxxxxxx")
+        transfer_value = st.number_input("Transaction Volume Scale (ETB)", min_value=5.00, step=5.00)
+        transaction_pin = st.text_input("Security PIN", type="password", max_chars=4)
 
         submit_transfer = st.form_submit_button("Execute Transfer Transaction")
 
@@ -262,21 +286,13 @@ with tab_transfer:
                 new_balance = wallet_balance - transfer_value
                 timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-                cursor.execute(
-                    "UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'",
-                    (new_balance,),
-                )
-                cursor.execute(
-                    """
-                    INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status)
-                    VALUES (?, 'Transfer', ?, ?, 'Success')
-                    """,
-                    (timestamp_str, f"P2P to {recipient_phone}", -transfer_value),
-                )
+                cursor.execute("UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'", (new_balance,))
+                cursor.execute("INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status) VALUES (?, 'Transfer', ?, ?, 'Success')", (timestamp_str, f"P2P to {recipient_phone}", -transfer_value))
                 conn.commit()
 
-                sms_text = f"Dear Client, {transfer_value:.2f} ETB transferred to {recipient_phone} on {timestamp_str} via Abdela e-money. New balance: {new_balance:.2f} ETB. Ref: TXN{random.randint(100000,999999)}."
-                simulate_twilio_sms_dispatch("0900223344", sms_text)
+                # FIRE REAL TELEGRAM PHONE OUTREACH TEXT
+                real_text = f"Outbound Transfer Sent!\nRecipient Line: {recipient_phone}\nVolume Sent: -{transfer_value:.2f} ETB\nRemaining Asset Threshold: {new_balance:.2f} ETB."
+                fire_real_smartphone_alert(real_text)
 
                 st.success(f"Transaction Confirmed! Outbound balance cleanly routed.")
                 st.rerun()
@@ -286,13 +302,7 @@ with tab_airtime:
     st.subheader("Ethio Telecom Bundle Recharge Engine")
     with st.form("airtime_form", clear_on_submit=True):
         target_phone = st.text_input("Target Recharge Phone", value="0900223344")
-        airtime_tier = st.selectbox(
-            "Select Bundle Pack Plan",
-            [
-                "Voice/Data Micro Pack (100.00 ETB)",
-                "Premium Monthly Unlimited Network Combo (500.00 ETB)",
-            ],
-        )
+        airtime_tier = st.selectbox("Select Bundle Pack Plan", ["Voice/Data Micro Pack (100.00 ETB)", "Premium Monthly Unlimited Network Combo (500.00 ETB)"])
 
         submit_airtime = st.form_submit_button("Deploy Top-Up Package")
 
@@ -305,21 +315,13 @@ with tab_airtime:
                 new_balance = wallet_balance - cost
                 timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-                cursor.execute(
-                    "UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'",
-                    (new_balance,),
-                )
-                cursor.execute(
-                    """
-                    INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status)
-                    VALUES (?, 'Payment', ?, ?, 'Success')
-                    """,
-                    (timestamp_str, f"Airtime to {target_phone}", -cost),
-                )
+                cursor.execute("UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'", (new_balance,))
+                cursor.execute("INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status) VALUES (?, 'Payment', ?, ?, 'Success')", (timestamp_str, f"Airtime to {target_phone}", -cost))
                 conn.commit()
 
-                sms_text = f"Abdela e-money Alert: Airtime package '{airtime_tier}' successfully deployed onto line {target_phone}. Cost: {cost:.2f} ETB."
-                simulate_twilio_sms_dispatch(target_phone, sms_text)
+                # FIRE REAL TELEGRAM PHONE OUTREACH TEXT
+                real_text = f"Telecom Airtime Deployment Complete!\nTarget Line: {target_phone}\nPackage Pack Selection: {airtime_tier}\nCost: {cost:.2f} ETB."
+                fire_real_smartphone_alert(real_text)
 
                 st.success("Airtime profile updated on system logs successfully.")
                 st.rerun()
@@ -328,17 +330,8 @@ with tab_airtime:
 with tab_utility:
     st.subheader("Registered Commercial Outbound Bill Settlement Engine")
     with st.form("utility_form", clear_on_submit=True):
-        merchant_name = st.selectbox(
-            "Select Utility Service Matrix ID",
-            [
-                "Addis Ababa Water & Sewerage Authority (AAWSA)",
-                "Sheger City Trade Office Operational Licensing Fee",
-                "Anbessa City Bus Smart-Card Reload Vector",
-            ],
-        )
-        bill_value = st.number_input(
-            "Settlement Due Parameters (ETB)", min_value=1.00, step=10.00
-        )
+        merchant_name = st.selectbox("Select Utility Service Matrix ID", ["Addis Ababa Water & Sewerage Authority (AAWSA)", "Sheger City Trade Office Operational Licensing Fee", "Anbessa City Bus Smart-Card Reload Vector"])
+        bill_value = st.number_input("Settlement Due Parameters (ETB)", min_value=1.00, step=10.00)
 
         submit_utility = st.form_submit_button("Make Payment via Abdela e-money")
 
@@ -350,26 +343,18 @@ with tab_utility:
                 new_balance = wallet_balance - bill_value
                 timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-                cursor.execute(
-                    "UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'",
-                    (new_balance,),
-                )
-                cursor.execute(
-                    """
-                    INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status)
-                    VALUES (?, 'Payment', ?, ?, 'Success')
-                    """,
-                    (timestamp_str, merchant_name, -bill_value),
-                )
+                cursor.execute("UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'", (new_balance,))
+                cursor.execute("INSERT INTO audit_ledger (timestamp, txn_type, entity_target, amount, execution_status) VALUES (?, 'Payment', ?, ?, 'Success')", (timestamp_str, merchant_name, -bill_value))
                 conn.commit()
 
-                sms_text = f"Abdela e-money Payment Confirmed: Bill value of {bill_value:.2f} ETB processed for account reference toward {merchant_name}."
-                simulate_twilio_sms_dispatch("0900223344", sms_text)
+                # FIRE REAL TELEGRAM PHONE OUTREACH TEXT
+                real_text = f"Commercial Bill Settlement Processed!\nMerchant: {merchant_name}\nSettlement Invoiced: -{bill_value:.2f} ETB\nRemaining Wallet Account Balance: {new_balance:.2f} ETB."
+                fire_real_smartphone_alert(real_text)
 
                 st.success("Relational invoicing entries closed successfully.")
                 st.rerun()
 
-# NEW CHANNEL: MOCK SAVINGS INTEREST ESTIMATOR CALCULATOR
+# CHANNEL 4: MOCK SAVINGS INTEREST ESTIMATOR CALCULATOR
 with tab_interest:
     st.subheader("📈 Sandbox Savings Growth Forecasting Engine")
     st.write("Predict your simulated compound interest returns based on your active play balance parameters.")
@@ -392,7 +377,7 @@ with tab_interest:
     fig_line = px.line(df_projection, x="Timeline (Years)", y="Projected Value (ETB)", title="Compounding Asset Balance Over Time", markers=True)
     st.plotly_chart(fig_line, use_container_width=True)
 
-# NEW CHANNEL: DYNAMIC RELATIONAL SECURITY PIN RESET VAULT
+# CHANNEL 5: DYNAMIC RELATIONAL SECURITY PIN RESET VAULT
 with tab_pin:
     st.subheader("🔒 Dynamic Credentials PIN Crypt Vault")
     st.write("Modify your security terminal passcode credentials cleanly within the backend relational database.")
@@ -416,13 +401,73 @@ with tab_pin:
                 cursor.execute("UPDATE accounts SET security_pin = ? WHERE phone_number = '0900223344'", (new_pin_input,))
                 conn.commit()
                 
-                sms_payload = "Abdela e-money Alert: Your 4-digit transaction verification PIN was successfully changed. If you did not authorize this request, lock your line profile immediately."
-                simulate_twilio_sms_dispatch("0900223344", sms_payload)
+                # FIRE REAL TELEGRAM PHONE OUTREACH TEXT
+                real_text = "Security Warning: Your 4-digit transaction verification authorization passcode credentials were modified inside the core database files successfully."
+                fire_real_smartphone_alert(real_text)
                 
                 st.success("Security configuration profile modified cleanly inside local database matrices.")
                 st.rerun()
 
-# CHANNEL 4: INTERACTIVE PLOTLY DATA VISUALIZATION ENGINE
+# CHANNEL 6: SIMULATED FOREX CURRENCY EXCHANGE CONVERTER
+with tab_exchange:
+    st.subheader("💱 Real-Time Foreign Exchange Valuation Engine")
+    
+    usd_index_rate = 124.50
+    eur_index_rate = 135.25
+    
+    st.write("📈 **Active Simulated Index Reference Ratios:**")
+    exc_col1, exc_col2 = st.columns(2)
+    exc_col1.metric("🇺🇸 USD / ETB Index Pair", f"{usd_index_rate:.2f} ETB")
+    exc_col2.metric("🇪🇺 EUR / ETB Index Pair", f"{eur_index_rate:.2f} ETB")
+    st.write("---")
+    
+    st.write("🌎 **Your Net Wallet Asset Valuation Matrix:**")
+    converted_usd = wallet_balance / usd_index_rate
+    converted_eur = wallet_balance / eur_index_rate
+    
+    res_col1, res_col2 = st.columns(2)
+    res_col1.metric("Net Valuation Scale (US Dollars)", f"\${converted_usd:,.2f} USD")
+    res_col2.metric("Net Valuation Scale (Euros)", f"€{converted_eur:,.2f} EUR")
+
+# CHANNEL 7: PRINTABLE COMMERCIAL INVOICE GENERATOR ENGINE
+with tab_invoice:
+    st.subheader("📄 Automated Outbound Commercial Invoice Builder")
+    inv_col1, inv_col2 = st.columns()
+    
+    with inv_col1:
+        st.write("**Invoicing Parameter Configurations:**")
+        client_org = st.text_input("Billed Customer / Corporate Entity Name", value="Ethio-Somali Logistics Corp")
+        invoice_item = st.text_input("Rendered Service Line Description", value="Enterprise FinTech System Integration Fee")
+        item_cost = st.number_input("Service Settlement Value (ETB)", min_value=10.00, value=25000.00, step=500.00)
+        invoice_notes = st.text_area("Invoicing Memo Terms / Notes", value="Net 30 settlement parameters applied. Remit transfer via core Abdela e-money network rails.")
+    
+    with inv_col2:
+        st.write("**📄 Live Generated Order Receipt Preview:**")
+        st.markdown(f"""
+        <div style="border: 2px dashed #9E9E9E; padding: 20px; background-color: #FAFAFA; border-radius: 8px; color: #212121;">
+            <h3 style="text-align: center; color: #1E88E5; margin-bottom: 5px;">ABDELA E-MONEY RECEIPT ORDER</h3>
+            <p style="text-align: center; font-size: 11px; color: #757575; margin-top: 0px;">Reference ID: INV-{random.randint(10000, 99999)}</p>
+            <hr style="border-top: 1px solid #BDBDBD;">
+            <p><strong>Billing Date:</strong> {datetime.datetime.now().strftime('%B %d, %Y')}</p>
+            <p><strong>Client Target:</strong> {client_org}</p>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <tr style="border-bottom: 2px solid #757575;">
+                    <th style="text-align: left;">Line Description</th>
+                    <th style="text-align: right;">Total Amount</th>
+                </tr>
+                <tr style="border-bottom: 1px solid #E0E0E0;">
+                    <td style="padding: 10px 0px; font-size: 13px;">{invoice_item}</td>
+                    <td style="text-align: right; padding: 10px 0px;">{item_cost:,.2f} ETB</td>
+                </tr>
+            </table>
+            <h4 style="text-align: right; margin-top: 20px; color: #2E7D32;">Total Balance Due: {item_cost:,.2f} ETB</h4>
+            <hr style="border-top: 1px dashed #BDBDBD; margin-top: 25px;">
+            <p style="font-size: 11px; color: #616161; line-height: 1.4;"><strong>Memo Notes:</strong> {invoice_notes}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.caption("💡 **Tip:** Press **`Ctrl + P`** on your keyboard to instantly print this receipt box directly to your hardware printer or save it as a digital PDF file on your computer!")
+
+# CHANNEL 8: INTERACTIVE PLOTLY DATA VISUALIZATION ENGINE
 with tab_analytics:
     st.subheader("Real-Time Expenditures Portfolio Analytics Dashboard")
     df_ledger = pd.read_sql_query("SELECT * FROM audit_ledger WHERE amount < 0", conn)
@@ -445,7 +490,7 @@ with tab_analytics:
     else:
         st.warning("Data Matrix Blank: Run transaction loops first to generate analytical chart tracks.")
 
-# CHANNEL 5: LIVE RAW RELATIONAL DATABASE ACCESS VIEW (SQLITE AUDIT LEDGER)
+# CHANNEL 9: LIVE RAW RELATIONAL DATABASE ACCESS VIEW (SQLITE AUDIT LEDGER)
 with tab_db_view:
     st.subheader("Live Relational Database Ledger Logs")
     df_global_audit = pd.read_sql_query("SELECT * FROM audit_ledger ORDER BY txn_id DESC", conn)
