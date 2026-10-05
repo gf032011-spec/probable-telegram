@@ -7,13 +7,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-# FIXED DATABASE CONFIGURATION FOR RENDER
-if os.path.exists('/data') or os.environ.get('RENDER'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/online_database.db'
-else:
-    os.makedirs('data', exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
-
+# FORCE STANDARD SYSTEM ROUTE: Stores database file directly in root to prevent folder permission crashes
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -101,7 +96,7 @@ def login():
             else:
                 flash('Invalid username or password', 'error')
         except Exception:
-            flash('Database configuration error.', 'error')
+            flash('Database loading issue. Please refresh.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
@@ -144,7 +139,7 @@ def register():
                 flash('Account created successfully! Please log in.')
                 return redirect(url_for('login'))
         except Exception:
-            flash('Database processing error.', 'error')
+            flash('Registration process database error.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
@@ -225,7 +220,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# Database table creator logic block
+# Initialization logic execution sequence
 with app.app_context():
     db.create_all()
     try:
