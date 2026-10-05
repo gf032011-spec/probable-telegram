@@ -7,16 +7,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-# 1. FIXED DATABASE PATH: Auto-detects Render storage versus local environment seamlessly
+# SYSTEM OVERRIDE: Uses the direct root folder path to bypass folder permission errors on Render
 if os.path.exists('/data') or os.environ.get('RENDER'):
-    try:
-        os.makedirs('/data', exist_ok=True)
-    except Exception:
-        pass
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/online_database.db'
 else:
-    os.makedirs('data', exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -39,7 +34,7 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # ==========================================
-# HTML LAYOUT (FIXED DESIGN)
+# HTML LAYOUT (NATIVE DESIGN RULES)
 # ==========================================
 BASE_LAYOUT = """
 <!DOCTYPE html>
@@ -105,7 +100,7 @@ def login():
             else:
                 flash('Invalid username or password', 'error')
         except Exception:
-            flash('Database configuration updating. Please refresh.', 'error')
+            flash('Database configuration error. Rebuilding table structures.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
@@ -229,7 +224,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# Automated initialization logic block
+# Isolated execution architecture block
 with app.app_context():
     db.create_all()
     try:
