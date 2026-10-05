@@ -58,7 +58,7 @@ BASE_LAYOUT = """
         .nav-links a:hover { color: white; }
         .main-container { max-width: 1100px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
         .auth-wrapper { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-        .card { background: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e3e6ea; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
+        .card { background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e3e6ea; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
         .auth-card { max-width: 420px; }
         .text-center { text-align: center; }
         .mb-3 { margin-bottom: 1rem; }
@@ -149,7 +149,7 @@ def login():
                     <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-control" required placeholder="Enter password">
                 </div>
-                <button type="submit" class="btn btn-primary W-100">Login</button>
+                <button type="submit" class="btn btn-primary">Login</button>
             </form>
             <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
                 <span style="color:#64748b;">New clerk?</span> <a href="/register" style="color:#007bff;text-decoration:none;font-weight:600;">Create Account</a>
@@ -190,7 +190,7 @@ def register():
                     <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-control" required placeholder="Enter password">
                 </div>
-                <button type="submit" class="btn btn-primary W-100">Login</button>
+                <button type="submit" class="btn btn-primary">Login</button>
             </form>
             <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
                 <span style="color:#64748b;">New clerk?</span> <a href="/register" style="color:#007bff;text-decoration:none;font-weight:600;">Create Account</a>
@@ -238,7 +238,7 @@ def register():
                         <option value="Admin">Office Administrator (Admin)</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-success W-100">Sign Up</button>
+                <button type="submit" class="btn btn-success">Sign Up</button>
             </form>
             <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
                 <a href="/login" style="color:#007bff;text-decoration:none;font-weight:600;">Back to Login</a>
@@ -317,11 +317,27 @@ def dashboard():
                     </tr>
                 </thead>
                 <tbody>
+                    {% for b in business_list %}
+                    <tr>
+                        <td>{{ b.id }}</td>
+                        <td><strong>{{ b.business_name }}</strong></td>
+                        <td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">{{ b.license_number }}</code></td>
+                        <td>{{ b.sector }}</td>
+                        <td>{{ b.registrar.username }}</td>
+                        {% if current_user.role == 'Admin' %}
+                        <td>
+                            <a href="/delete_business/{{ b.id }}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center" style="color:#94a3b8; padding:20px;">No business profiles found in registry database.</td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
         <h5 style="margin-bottom:10px; color:#475569;">Office Clerk Directory</h5>
         <div class="table-responsive">
             <table>
@@ -359,7 +375,6 @@ def dashboard():
         </div>
     </div>
     """), total_users=total_users, total_businesses=total_businesses, user_list=user_list, business_list=business_list)
-
 @app.route('/add_business', methods=['POST'])
 @login_required
 def add_business():
