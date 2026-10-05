@@ -432,7 +432,7 @@ with tab_exchange:
 # CHANNEL 7: PRINTABLE COMMERCIAL INVOICE GENERATOR ENGINE
 with tab_invoice:
     st.subheader("📄 Automated Outbound Commercial Invoice Builder")
-    inv_col1, inv_col2 = st.columns()
+    inv_col1, inv_col2 = st.columns(2)
     
     with inv_col1:
         st.write("**Invoicing Parameter Configurations:**")
