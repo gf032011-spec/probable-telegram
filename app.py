@@ -7,18 +7,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-# Create the /data directory if it doesn't exist yet on Render
-if not os.path.exists('/data'):
+# Create local data folder fallback if not on Render disk mount point
+if not os.path.exists('/data') and not os.environ.get('RENDER'):
+    os.makedirs('data', exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
+else:
+    # Ensure folder path handles permissions gracefully
     try:
-        os.makedirs('/data', exist_ok=True)
+        if os.path.exists('/data'):
+            os.makedirs('/data', exist_ok=True)
     except Exception:
         pass
-
-# Force the application to use a standard database fallback location if /data fails
-if os.path.exists('/data') or os.environ.get('RENDER'):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/online_database.db'
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -26,6 +26,9 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+# ==========================================
+# DATABASE MODEL
+# ==========================================
 class User(UserMixin, db.Model):
     __tablename__ = 'Users'
     id = db.Column(db.Integer, primary_key=True)
@@ -37,6 +40,9 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# ==========================================
+# HTML LAYOUT
+# ==========================================
 BASE_LAYOUT = """
 <!DOCTYPE html>
 <html>
@@ -44,7 +50,7 @@ BASE_LAYOUT = """
     <title>Cloud Web Application</title>
     <style>
         body { background-color: #f0f2f5; font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; padding-top: 60px; color: #333333; }
-        .card { background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 420px; border: 1px solid #e3e6ea; }
+        .card { background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 420px; border: 1px solid #e3e6ea; box-sizing: border-box; }
         .text-center { text-align: center; }
         .mb-3 { margin-bottom: 1rem; }
         .mb-4 { margin-bottom: 1.5rem; }
@@ -52,7 +58,7 @@ BASE_LAYOUT = """
         .mt-4 { margin-top: 1.5rem; }
         .w-100 { width: 100%; }
         .font-weight-bold { font-weight: bold; }
-        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.95rem; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.95rem; text-align: left; }
         .form-control, .form-select { display: block; width: 100%; padding: 0.5rem 0.75rem; font-size: 1rem; border: 1px solid #cccccc; border-radius: 6px; box-sizing: border-box; margin-bottom: 1rem; }
         .btn { display: inline-block; font-weight: 600; text-align: center; cursor: pointer; padding: 0.6rem 1.2rem; font-size: 1rem; border-radius: 6px; border: 1px solid transparent; text-decoration: none; box-sizing: border-box; width: 100%; }
         .btn-primary { color: #ffffff; background-color: #007bff; }
@@ -66,9 +72,8 @@ BASE_LAYOUT = """
         th { background-color: #f8f9fa; font-weight: 600; }
     </style>
 </head>
-
 <body class="bg-light">
-    <div class="container mt-5" style="max-width: 600px;">
+    <div class="container" style="width:100%; max-width:440px; padding:10px;">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -82,6 +87,9 @@ BASE_LAYOUT = """
 </html>
 """
 
+# ==========================================
+# ROUTES
+# ==========================================
 @app.route('/')
 def index():
     return redirect(url_for('login'))
@@ -91,16 +99,21 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
         
-        if user and check_password_hash(user.password, password):
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password', 'error')
+        # Safe query check to handle missing schema states gracefully
+        try:
+            user = User.query.filter_by(username=username).first()
+            if user and check_password_hash(user.password, password):
+                login_user(user)
+                return redirect(url_for('dashboard'))
+            else:
+                flash('Invalid username or password', 'error')
+        except Exception as e:
+            flash('Database loading issue. Please refresh or recreate tables.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
-    <div class="card p-4 shadow-sm text-dark">
+    {% block content %}
+    <div class="card">
         <h3 class="text-center mb-4 font-weight-bold">Account Login</h3>
         <form method="POST">
             <div class="mb-3">
@@ -111,12 +124,13 @@ def login():
                 <label class="form-label">Password</label>
                 <input type="password" name="password" class="form-control" required>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
+            <button type="submit" class="btn btn-primary">Login</button>
         </form>
         <div class="text-center mt-3">
             <a href="{{ url_for('register') }}">Create New Account</a>
         </div>
     </div>
+    {% endblock %}
     """)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -126,19 +140,23 @@ def register():
         password = request.form.get('password')
         role = request.form.get('role')
         
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            flash('Username already exists!', 'error')
-        else:
-            hashed_password = generate_password_hash(password)
-            new_user = User(username=username, password=hashed_password, role=role)
-            db.session.add(new_user)
-            db.session.commit()
-            flash('Account created successfully! Please log in.')
-            return redirect(url_for('login'))
+        try:
+            existing_user = User.query.filter_by(username=username).first()
+            if existing_user:
+                flash('Username already exists!', 'error')
+            else:
+                hashed_password = generate_password_hash(password)
+                new_user = User(username=username, password=hashed_password, role=role)
+                db.session.add(new_user)
+                db.session.commit()
+                flash('Account created successfully! Please log in.')
+                return redirect(url_for('login'))
+        except Exception:
+            flash('Registration server database error.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
-    <div class="card p-4 shadow-sm text-dark">
+    {% block content %}
+    <div class="card">
         <h3 class="text-center mb-4 font-weight-bold">Register</h3>
         <form method="POST">
             <div class="mb-3">
@@ -156,28 +174,33 @@ def register():
                     <option value="Admin">Admin</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-success w-100">Sign Up</button>
+            <button type="submit" class="btn btn-success">Sign Up</button>
         </form>
         <div class="text-center mt-3">
             <a href="{{ url_for('login') }}">Back to Login</a>
         </div>
     </div>
+    {% endblock %}
     """)
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
     all_users = []
-    if current_user.role == 'Admin':
-        all_users = User.query.all()
+    try:
+        if current_user.role == 'Admin':
+            all_users = User.query.all()
+    except Exception:
+        pass
         
     return render_template_string(BASE_LAYOUT + """
-    <div class="card p-4 shadow-sm text-dark">
+    {% block content %}
+    <div class="card" style="max-width: 100%; width: 600px;">
         <h3 class="mb-3">Welcome, {{ current_user.username }} ({{ current_user.role }})</h3>
         
         {% if current_user.role == 'Admin' %}
             <h5>Registered Database Entities:</h5>
-            <table class="table table-striped mt-3">
+            <table>
                 <thead>
                     <tr>
                         <th>User ID</th>
@@ -201,6 +224,7 @@ def dashboard():
         
         <a href="{{ url_for('logout') }}" class="btn btn-danger mt-4">Logout</a>
     </div>
+    {% endblock %}
     """, all_users=all_users)
 
 @app.route('/logout')
@@ -209,11 +233,23 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-if __name__ == '__main__':
+# Automated initialization logic block
+def initialize_database():
     with app.app_context():
         db.create_all()
-        if not User.query.filter_by(username='admin').first():
-            db.session.add(User(username='admin', password=generate_password_hash('admin123'), role='Admin'))
-            db.session.commit()
-            
+        try:
+            if not User.query.filter_by(username='admin').first():
+                admin_user = User(
+                    username='admin', 
+                    password=generate_password_hash('admin123'), 
+                    role='Admin'
+                )
+                db.session.add(admin_user)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+initialize_database()
+
+if __name__ == '__main__':
     app.run(debug=True)
