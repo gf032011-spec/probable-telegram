@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-# FORCE STANDARD SYSTEM ROUTE: Stores database file directly in root to prevent folder permission crashes
+# Stores database file directly in root to prevent folder permission crashes
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -98,8 +98,7 @@ def login():
         except Exception:
             flash('Database loading issue. Please refresh.', 'error')
             
-    return render_template_string(BASE_LAYOUT + """
-    {% block content %}
+    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
     <div class="card">
         <h3 class="text-center mb-4 font-weight-bold">Account Login</h3>
         <form method="POST">
@@ -114,11 +113,10 @@ def login():
             <button type="submit" class="btn btn-primary">Login</button>
         </form>
         <div class="text-center mt-3">
-            <a href="{{ url_for('register') }}">Create New Account</a>
+            <a href="/register">Create New Account</a>
         </div>
     </div>
-    {% endblock %}
-    """)
+    """))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -141,8 +139,7 @@ def register():
         except Exception:
             flash('Registration process database error.', 'error')
             
-    return render_template_string(BASE_LAYOUT + """
-    {% block content %}
+    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
     <div class="card">
         <h3 class="text-center mb-4 font-weight-bold">Register</h3>
         <form method="POST">
@@ -164,11 +161,10 @@ def register():
             <button type="submit" class="btn btn-success">Sign Up</button>
         </form>
         <div class="text-center mt-3">
-            <a href="{{ url_for('login') }}">Back to Login</a>
+            <a href="/login">Back to Login</a>
         </div>
     </div>
-    {% endblock %}
-    """)
+    """))
 
 @app.route('/dashboard')
 @login_required
@@ -180,8 +176,7 @@ def dashboard():
     except Exception:
         pass
         
-    return render_template_string(BASE_LAYOUT + """
-    {% block content %}
+    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
     <div class="card" style="max-width: 100%; width: 600px;">
         <h3 class="mb-3">Welcome, {{ current_user.username }} ({{ current_user.role }})</h3>
         
@@ -209,10 +204,9 @@ def dashboard():
             <p class="lead mt-4 text-muted">Standard access level verified. You can navigate standard application parameters.</p>
         {% endif %}
         
-        <a href="{{ url_for('logout') }}" class="btn btn-danger mt-4">Logout</a>
+        <a href="/logout" class="btn btn-danger mt-4">Logout</a>
     </div>
-    {% endblock %}
-    """, all_users=all_users)
+    """), all_users=all_users)
 
 @app.route('/logout')
 @login_required
