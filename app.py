@@ -39,7 +39,6 @@ class Business(db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
 # ==========================================
 # UNIVERSAL RESPONSIVE GRAPHICAL INTERFACE
 # ==========================================
@@ -111,7 +110,6 @@ BASE_LAYOUT = """
 </body>
 </html>
 """
-
 # ==========================================
 # ROUTES
 # ==========================================
@@ -137,47 +135,6 @@ def login():
             flash('Database processing error. Please refresh.', 'error')
             
     return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
-    <div class="auth-wrapper">
-        <div class="card auth-card">
-            <h3 class="text-center mb-4 font-weight-bold" style="margin-top:0;color:#1e293b;">Account Sign In</h3>
-            <form method="POST">
-                <div class="form-group">
-                    <label class="form-label">Username</label>
-                    <input type="text" name="username" class="form-control" required placeholder="Enter username">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="password" name="password" class="form-control" required placeholder="Enter password">
-                </div>
-                <button type="submit" class="btn btn-primary">Login</button>
-            </form>
-            <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
-                <span style="color:#64748b;">New clerk?</span> <a href="/register" style="color:#007bff;text-decoration:none;font-weight:600;">Create Account</a>
-            </div>
-        </div>
-    </div>
-    """))
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        role = request.form.get('role', 'User')
-        try:
-            existing_user = User.query.filter_by(username=username).first()
-            if existing_user:
-                flash('Username already registered in database!', 'error')
-            else:
-                new_user = User(username=username, password=generate_password_hash(password), role=role)
-                db.session.add(new_user)
-                db.session.commit()
-                flash('Account created successfully! Please sign in.', 'success')
-                return redirect(url_for('login'))
-        except Exception:
-            flash('Database registration channel error.', 'error')
-            
-        return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
     <div class="auth-wrapper">
         <div class="card auth-card">
             <h3 class="text-center mb-4 font-weight-bold" style="margin-top:0;color:#1e293b;">Account Sign In</h3>
@@ -246,7 +203,6 @@ def register():
         </div>
     </div>
     """))
-
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -375,6 +331,7 @@ def dashboard():
         </div>
     </div>
     """), total_users=total_users, total_businesses=total_businesses, user_list=user_list, business_list=business_list)
+
 @app.route('/add_business', methods=['POST'])
 @login_required
 def add_business():
@@ -393,22 +350,6 @@ def add_business():
     except Exception:
         db.session.rollback()
         flash('Error executing transaction.', 'error')
-    return redirect(url_for('dashboard'))
-
-@app.route('/delete_business/<int:id>')
-@login_required
-def delete_business(id):
-    if current_user.role != 'Admin':
-        flash('Unauthorized permission level.', 'error')
-        return redirect(url_for('dashboard'))
-    try:
-        target = Business.query.get_or_404(id)
-        db.session.delete(target)
-        db.session.commit()
-        flash('Business record removed from active registry data rows.', 'success')
-    except Exception:
-        db.session.rollback()
-        flash('Error executing row purge.', 'error')
     return redirect(url_for('dashboard'))
 
 @app.route('/delete_user/<int:id>')
@@ -454,4 +395,3 @@ with app.app_context():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
