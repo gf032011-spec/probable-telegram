@@ -7,11 +7,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-if not os.path.exists('/data') and not os.environ.get('RENDER'):
-    os.makedirs('data', exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
-else:
+# Create the /data directory if it doesn't exist yet on Render
+if not os.path.exists('/data'):
+    try:
+        os.makedirs('/data', exist_ok=True)
+    except Exception:
+        pass
+
+# Force the application to use a standard database fallback location if /data fails
+if os.path.exists('/data') or os.environ.get('RENDER'):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/online_database.db'
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
