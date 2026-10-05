@@ -145,7 +145,6 @@ subscriber_df = pd.read_sql_query(
     "SELECT * FROM accounts WHERE phone_number='0900223344'", conn
 )
 
-# Structural safeguard verification parameters added to auto-inject if out-of-bounds row missing
 if subscriber_df.empty:
     cursor = conn.cursor()
     cursor.execute(
@@ -182,28 +181,27 @@ with st.sidebar:
 # =====================================================================
 # 💳 WORKSPACE FUNCTIONAL CHANNELS (TAB LAYOUT MATRICES)
 # =====================================================================
-tab_deposit, tab_transfer, tab_airtime, tab_utility, tab_analytics, tab_db_view = st.tabs(
+tab_deposit, tab_transfer, tab_airtime, tab_utility, tab_interest, tab_pin, tab_analytics, tab_db_view = st.tabs(
     [
-        "📥 Cash Deposit (Agent)",
+        "📥 Cash Deposit",
         "💸 Send Money",
         "📞 Buy Airtime",
         "🛍️ Utility Settlement",
+        "📈 Savings Estimator",
+        "🔒 Change PIN",
         "📊 Plotly Analytics",
-        "🗄️ Relational Database Ledger",
+        "🗄️ Relational Database",
     ]
 )
 
-# NEW TAB MATRIX: SIMULATED AGENT CASH-IN DEPOSIT SYSTEM
+# CHANNEL 0: SIMULATED AGENT CASH-IN DEPOSIT SYSTEM
 with tab_deposit:
     st.subheader("🏦 Simulated Agent Cash-In Terminal")
-    
-    # NEW INSTRUCTIONAL MODULE: Explains how a user executes a mock deposit
     st.info("""
     📖 **How to Deposit (Simulation Guide):**
     1. Enter any mock **Agent Reference Code** in the box below.
     2. Input the fake **Deposit Value (ETB)** you would like to add to your test balance.
     3. Click the **Confirm Cash Deposit** button.
-    4. Your sidebar balance will instantly refresh, your database statement ledger will update, and a simulated Twilio SMS alert receipt will display.
     """)
     
     with st.form("agent_deposit_form", clear_on_submit=True):
@@ -217,7 +215,6 @@ with tab_deposit:
             new_balance = wallet_balance + deposit_amount
             timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             
-            # Commit the newly added balance directly to your SQLite hard drive file
             cursor.execute(
                 "UPDATE accounts SET wallet_balance = ? WHERE phone_number = '0900223344'",
                 (new_balance,),
@@ -231,7 +228,6 @@ with tab_deposit:
             )
             conn.commit()
             
-            # Fire an automatic Twilio receipt notification text
             sms_payload = f"Abdela e-money Alert: {deposit_amount:.2f} ETB deposited at Agent {agent_id} on {timestamp_str}. New balance: {new_balance:.2f} ETB."
             simulate_twilio_sms_dispatch("0900223344", sms_payload)
             
@@ -249,20 +245,16 @@ with tab_transfer:
             "Transaction Volume Scale (ETB)", min_value=5.00, step=5.00
         )
         transaction_pin = st.text_input(
-            "Security PIN (Default Setup: 1234)", type="password", max_chars=4
+            "Security PIN", type="password", max_chars=4
         )
 
         submit_transfer = st.form_submit_button("Execute Transfer Transaction")
 
         if submit_transfer:
             if not recipient_phone or len(recipient_phone) < 9:
-                st.error(
-                    "Operation Aborted: Target recipient network route format invalid."
-                )
+                st.error("Operation Aborted: Target recipient network route format invalid.")
             elif transfer_value > wallet_balance:
-                st.error(
-                    "Operation Aborted: Inbound trade metrics exceed wallet balance thresholds."
-                )
+                st.error("Operation Aborted: Inbound trade metrics exceed wallet balance thresholds.")
             elif transaction_pin != security_pin_stored:
                 st.error("Authentication Error: Invalid terminal security PIN match.")
             else:
@@ -281,19 +273,12 @@ with tab_transfer:
                     """,
                     (timestamp_str, f"P2P to {recipient_phone}", -transfer_value),
                 )
-
                 conn.commit()
 
-                # Fire Automated Abdela e-money Alert System
                 sms_text = f"Dear Client, {transfer_value:.2f} ETB transferred to {recipient_phone} on {timestamp_str} via Abdela e-money. New balance: {new_balance:.2f} ETB. Ref: TXN{random.randint(100000,999999)}."
-                simulate_twilio_sms_dispatch(
-                    "0900223344", sms_text
-                )
+                simulate_twilio_sms_dispatch("0900223344", sms_text)
 
-                st.success(
-                    f"Transaction Confirmed! Outbound balance cleanly routed to destination array."
-                )
-                st.sidebar.markdown(f"**Updated Balance:** {new_balance:,.2f} ETB")
+                st.success(f"Transaction Confirmed! Outbound balance cleanly routed.")
                 st.rerun()
 
 # CHANNEL 2: TELECOM AIRTIME TOP-UP SYSTEM
@@ -314,9 +299,7 @@ with tab_airtime:
         if submit_airtime:
             cost = 100.00 if "100.00" in airtime_tier else 500.00
             if cost > wallet_balance:
-                st.error(
-                    "Aborted: Inbound package value exceeds remaining asset thresholds."
-                )
+                st.error("Aborted: Inbound package value exceeds remaining asset thresholds.")
             else:
                 cursor = conn.cursor()
                 new_balance = wallet_balance - cost
@@ -335,7 +318,6 @@ with tab_airtime:
                 )
                 conn.commit()
 
-                # Twilio SMS Event Dispatch
                 sms_text = f"Abdela e-money Alert: Airtime package '{airtime_tier}' successfully deployed onto line {target_phone}. Cost: {cost:.2f} ETB."
                 simulate_twilio_sms_dispatch(target_phone, sms_text)
 
@@ -362,9 +344,7 @@ with tab_utility:
 
         if submit_utility:
             if bill_value > wallet_balance:
-                st.error(
-                    "Aborted: Balance limits sit below requested transaction value inputs."
-                )
+                st.error("Aborted: Balance limits sit below requested transaction value inputs.")
             else:
                 cursor = conn.cursor()
                 new_balance = wallet_balance - bill_value
@@ -383,74 +363,94 @@ with tab_utility:
                 )
                 conn.commit()
 
-                # Twilio SMS Event Alert
                 sms_text = f"Abdela e-money Payment Confirmed: Bill value of {bill_value:.2f} ETB processed for account reference toward {merchant_name}."
-                simulate_twilio_sms_dispatch(
-                    "0900223344", sms_text
-                )
+                simulate_twilio_sms_dispatch("0900223344", sms_text)
 
                 st.success("Relational invoicing entries closed successfully.")
-                st.sidebar.markdown(f"**Updated Balance:** {new_balance:,.2f} ETB")
+                st.rerun()
+
+# NEW CHANNEL: MOCK SAVINGS INTEREST ESTIMATOR CALCULATOR
+with tab_interest:
+    st.subheader("📈 Sandbox Savings Growth Forecasting Engine")
+    st.write("Predict your simulated compound interest returns based on your active play balance parameters.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        annual_yield = st.slider("Simulated Annual Interest Rate (Yield %)", min_value=4.0, max_value=15.0, value=7.5, step=0.5)
+        forecast_years = st.slider("Investment Horizon Timeline (Years)", min_value=1, max_value=10, value=5)
+    
+    years_list = list(range(0, forecast_years + 1))
+    balance_projections = [wallet_balance * ((1 + (annual_yield / 100)) ** year) for year in years_list]
+    
+    df_projection = pd.DataFrame({"Timeline (Years)": years_list, "Projected Value (ETB)": balance_projections})
+    
+    with col2:
+        final_yield = balance_projections[-1]
+        interest_earned = final_yield - wallet_balance
+        st.metric(label="Estimated Value (Horizon End)", value=f"{final_yield:,.2f} ETB", delta=f"+{interest_earned:,.2f} ETB Earned")
+    
+    fig_line = px.line(df_projection, x="Timeline (Years)", y="Projected Value (ETB)", title="Compounding Asset Balance Over Time", markers=True)
+    st.plotly_chart(fig_line, use_container_width=True)
+
+# NEW CHANNEL: DYNAMIC RELATIONAL SECURITY PIN RESET VAULT
+with tab_pin:
+    st.subheader("🔒 Dynamic Credentials PIN Crypt Vault")
+    st.write("Modify your security terminal passcode credentials cleanly within the backend relational database.")
+    
+    with st.form("pin_modification_form", clear_on_submit=True):
+        current_pin_input = st.text_input("Enter Current 4-Digit Security PIN", type="password", max_chars=4)
+        new_pin_input = st.text_input("Enter New 4-Digit Passcode", type="password", max_chars=4)
+        confirm_pin_input = st.text_input("Confirm New Passcode Entry", type="password", max_chars=4)
+        
+        submit_pin_change = st.form_submit_button("Commit Security Parameter Changes")
+        
+        if submit_pin_change:
+            if current_pin_input != security_pin_stored:
+                st.error("Authentication Exception: Active password token matrix mismatch.")
+            elif len(new_pin_input) != 4 or not new_pin_input.isdigit():
+                st.error("Validation Exception: Passcode format constraint requires exactly 4 numerical tokens.")
+            elif new_pin_input != confirm_pin_input:
+                st.error("Mismatch Error: Confirmation token string maps away from parent vector entry.")
+            else:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE accounts SET security_pin = ? WHERE phone_number = '0900223344'", (new_pin_input,))
+                conn.commit()
+                
+                sms_payload = "Abdela e-money Alert: Your 4-digit transaction verification PIN was successfully changed. If you did not authorize this request, lock your line profile immediately."
+                simulate_twilio_sms_dispatch("0900223344", sms_payload)
+                
+                st.success("Security configuration profile modified cleanly inside local database matrices.")
                 st.rerun()
 
 # CHANNEL 4: INTERACTIVE PLOTLY DATA VISUALIZATION ENGINE
 with tab_analytics:
     st.subheader("Real-Time Expenditures Portfolio Analytics Dashboard")
-
-    # Query complete historical ledger lines dynamically into dataframes
-    df_ledger = pd.read_sql_query(
-        "SELECT * FROM audit_ledger WHERE amount < 0", conn
-    )
+    df_ledger = pd.read_sql_query("SELECT * FROM audit_ledger WHERE amount < 0", conn)
 
     if not df_ledger.empty:
-        # Normalize continuous amounts back to positive scales for relative profile tracking charts
         df_ledger["Absolute_Expenditure"] = df_ledger["amount"].abs()
-
         col_pie, col_bar = st.columns(2)
 
         with col_pie:
             st.write("**Expense Allocation Mix by Category Type**")
-            fig_pie = px.pie(
-                df_ledger,
-                values="Absolute_Expenditure",
-                names="txn_type",
-                color_discrete_sequence=px.colors.sequential.RdBu,
-                hole=0.4,
-            )
+            fig_pie = px.pie(df_ledger, values="Absolute_Expenditure", names="txn_type", color_discrete_sequence=px.colors.sequential.RdBu, hole=0.4)
             fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10))
             st.plotly_chart(fig_pie, use_container_width=True)
 
         with col_bar:
             st.write("**Transaction Footprint Matrix Across Targeted Outlets**")
-            fig_bar = px.bar(
-                df_ledger,
-                x="entity_target",
-                y="Absolute_Expenditure",
-                color="txn_type",
-                labels={
-                    "entity_target": "Provider / Target Profile",
-                    "Absolute_Expenditure": "Volume Spent (ETB)",
-                },
-                template="seaborn",
-            )
+            fig_bar = px.bar(df_ledger, x="entity_target", y="Absolute_Expenditure", color="txn_type", labels={"entity_target": "Provider / Target Profile", "Absolute_Expenditure": "Volume Spent (ETB)"}, template="seaborn")
             fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10))
             st.plotly_chart(fig_bar, use_container_width=True)
     else:
-        st.warning(
-            "Data Matrix Blank: Run transaction loops first to generate analytical chart tracks."
-        )
+        st.warning("Data Matrix Blank: Run transaction loops first to generate analytical chart tracks.")
 
 # CHANNEL 5: LIVE RAW RELATIONAL DATABASE ACCESS VIEW (SQLITE AUDIT LEDGER)
 with tab_db_view:
     st.subheader("Live Relational Database Ledger Logs")
-    
-    # Render the static dataframe log profile
-    df_global_audit = pd.read_sql_query(
-        "SELECT * FROM audit_ledger ORDER BY txn_id DESC", conn
-    )
+    df_global_audit = pd.read_sql_query("SELECT * FROM audit_ledger ORDER BY txn_id DESC", conn)
     st.dataframe(df_global_audit, use_container_width=True, hide_index=True)
     
-    # Live Statement Downloader Button Module
     st.write("---")
     st.write("📂 **Account Statement Export Center**")
     csv_data_buffer = df_global_audit.to_csv(index=False).encode('utf-8')
@@ -460,9 +460,6 @@ with tab_db_view:
         file_name="Abdela_Emoney_Statement_20261005.csv",
         mime="text/csv",
     )
-    st.caption(
-        f"Displaying {len(df_global_audit)} active logs rows fetched directly from backend relational database schemas."
-    )
+    st.caption(f"Displaying {len(df_global_audit)} active logs rows fetched directly from backend relational database schemas.")
 
-# Explicitly close relational network lines at the end of runtime compilation loop
 conn.close()
