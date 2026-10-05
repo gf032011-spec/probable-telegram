@@ -7,18 +7,16 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'local-secret-key-12345')
 
-# Create local data folder fallback if not on Render disk mount point
-if not os.path.exists('/data') and not os.environ.get('RENDER'):
-    os.makedirs('data', exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
-else:
-    # Ensure folder path handles permissions gracefully
+# 1. FIXED DATABASE PATH: Auto-detects Render storage versus local environment seamlessly
+if os.path.exists('/data') or os.environ.get('RENDER'):
     try:
-        if os.path.exists('/data'):
-            os.makedirs('/data', exist_ok=True)
+        os.makedirs('/data', exist_ok=True)
     except Exception:
         pass
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/online_database.db'
+else:
+    os.makedirs('data', exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/online_database.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -41,7 +39,7 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # ==========================================
-# HTML LAYOUT
+# HTML LAYOUT (FIXED DESIGN)
 # ==========================================
 BASE_LAYOUT = """
 <!DOCTYPE html>
@@ -55,7 +53,6 @@ BASE_LAYOUT = """
         .mb-3 { margin-bottom: 1rem; }
         .mb-4 { margin-bottom: 1.5rem; }
         .mt-3 { margin-top: 1rem; }
-        .mt-4 { margin-top: 1.5rem; }
         .w-100 { width: 100%; }
         .font-weight-bold { font-weight: bold; }
         .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.95rem; text-align: left; }
@@ -100,7 +97,6 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        # Safe query check to handle missing schema states gracefully
         try:
             user = User.query.filter_by(username=username).first()
             if user and check_password_hash(user.password, password):
@@ -108,8 +104,8 @@ def login():
                 return redirect(url_for('dashboard'))
             else:
                 flash('Invalid username or password', 'error')
-        except Exception as e:
-            flash('Database loading issue. Please refresh or recreate tables.', 'error')
+        except Exception:
+            flash('Database configuration updating. Please refresh.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
@@ -152,7 +148,7 @@ def register():
                 flash('Account created successfully! Please log in.')
                 return redirect(url_for('login'))
         except Exception:
-            flash('Registration server database error.', 'error')
+            flash('Database processing error.', 'error')
             
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
@@ -234,22 +230,19 @@ def logout():
     return redirect(url_for('login'))
 
 # Automated initialization logic block
-def initialize_database():
-    with app.app_context():
-        db.create_all()
-        try:
-            if not User.query.filter_by(username='admin').first():
-                admin_user = User(
-                    username='admin', 
-                    password=generate_password_hash('admin123'), 
-                    role='Admin'
-                )
-                db.session.add(admin_user)
-                db.session.commit()
-        except Exception:
-            db.session.rollback()
-
-initialize_database()
+with app.app_context():
+    db.create_all()
+    try:
+        if not User.query.filter_by(username='admin').first():
+            admin_user = User(
+                username='admin', 
+                password=generate_password_hash('admin123'), 
+                role='Admin'
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 if __name__ == '__main__':
     app.run(debug=True)
