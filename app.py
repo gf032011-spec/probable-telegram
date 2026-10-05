@@ -35,7 +35,7 @@ class Business(db.Model):
     phone_number = db.Column(db.String(50), nullable=False)
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
-    products = db.relationship('Product', backref='shop', lazy=True, cascade="all, delete-orphan")
+    products = db.relationship('Product', backref='associated_shop', lazy=True, cascade="all, delete-orphan")
 class Product(db.Model):
     __tablename__ = 'Products'
     id = db.Column(db.Integer, primary_key=True)
@@ -297,7 +297,7 @@ def dashboard():
                 <div class="product-info">
                     <span style="font-size:0.75rem; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px; color:#0284c7;">{{ p.category }}</span>
                     <h4 class="product-title">{{ p.product_name }}</h4>
-                    <div class="product-meta">Shop Vendor: <strong>{{ p.shop.business_name }}</strong></div>
+                    <div class="product-meta">Shop Vendor: <strong>{{ p.associated_shop.business_name }}</strong></div>
                     <div class="product-meta">Total Stock Available: <strong style="color:#0f172a;">{{ p.quantity }} units</strong></div>
                     {% if current_user.is_authenticated and current_user.role == 'Admin' %}
                         <div style="background:#f1f5f9; padding:8px; border-radius:6px; margin:8px 0; font-size:0.8rem;">
