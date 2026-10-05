@@ -8,12 +8,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'trade-office-super-secret-key-98765')
 
-# PERSISTENT SYSTEM STORAGE: Detects environment paths and prevents folder permission crashes
-if os.path.exists('/data') or os.environ.get('RENDER'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/online_database.db'
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
-
+# FORCE STANDARD SYSTEM ROUTE: Stores database file directly in root to prevent folder permission crashes
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -55,41 +51,40 @@ BASE_LAYOUT = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gelan Guda Sub City Trade Office</title>
     <style>
-        :root { --bg-color: #f4f6f9; --card-bg: #ffffff; --text-main: #333333; --primary: #007bff; --success: #28a745; --danger: #dc3545; --border: #e3e6ea; }
-        body { background-color: var(--bg-color); font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: var(--text-main); }
+        body { background-color: #f0f2f5; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #333333; }
         .navbar { background: #1e293b; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .navbar h2 { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: 0.5px; }
+        .navbar h2 { margin: 0; font-size: 1.3rem; font-weight: 700; }
         .nav-links a { color: #cbd5e1; text-decoration: none; margin-left: 15px; font-weight: 500; font-size: 0.95rem; }
         .nav-links a:hover { color: white; }
         .main-container { max-width: 1100px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
         .auth-wrapper { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-        .card { background: var(--card-bg); padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid var(--border); width: 100%; box-sizing: border-box; }
+        .card { background: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e3e6ea; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
         .auth-card { max-width: 420px; }
         .text-center { text-align: center; }
+        .mb-3 { margin-bottom: 1rem; }
         .mb-4 { margin-bottom: 1.5rem; }
+        .mt-3 { margin-top: 1rem; }
+        .w-100 { width: 100%; }
+        .font-weight-bold { font-weight: bold; }
         .form-group { margin-bottom: 1.25rem; text-align: left; }
         .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: #475569; }
-        .form-control, .form-select { display: block; width: 100%; padding: 0.6rem 0.75rem; font-size: 0.95rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; transition: border-color 0.2s; }
-        .form-control:focus, .form-select:focus { border-color: var(--primary); outline: none; }
-        .btn { display: inline-block; font-weight: 600; text-align: center; cursor: pointer; padding: 0.65rem 1.2rem; font-size: 0.95rem; border-radius: 6px; border: 1px solid transparent; text-decoration: none; box-sizing: border-box; transition: opacity 0.2s; }
-        .btn:hover { opacity: 0.9; }
-        .btn-primary { color: #ffffff; background-color: var(--primary); }
-        .btn-success { color: #ffffff; background-color: var(--success); }
-        .btn-danger { color: #ffffff; background-color: var(--danger); }
-        .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.85rem; border-radius: 4px; }
+        .form-control, .form-select { display: block; width: 100%; padding: 0.6rem 0.75rem; font-size: 0.95rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        .btn { display: inline-block; font-weight: 600; text-align: center; cursor: pointer; padding: 0.65rem 1.2rem; font-size: 0.95rem; border-radius: 6px; border: 1px solid transparent; text-decoration: none; box-sizing: border-box; width: 100%; }
+        .btn-primary { color: #ffffff; background-color: #007bff; }
+        .btn-success { color: #ffffff; background-color: #28a745; }
+        .btn-danger { color: #ffffff; background-color: #dc3545; }
+        .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.85rem; border-radius: 4px; width: auto; }
         .alert { padding: 0.75rem 1.25rem; margin-bottom: 1.5rem; border-radius: 6px; font-weight: 500; font-size: 0.95rem; }
         .alert-danger { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
         .alert-success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-box { background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center; }
-        .stat-box h3 { margin: 0 0 5px 0; font-size: 2rem; color: var(--primary); }
+        .stat-box { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e3e6ea; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center; }
+        .stat-box h3 { margin: 0 0 5px 0; font-size: 2rem; color: #007bff; }
         .stat-box p { margin: 0; color: #64748b; font-weight: 500; font-size: 0.9rem; }
-        .dashboard-sections { display: grid; grid-template-columns: 1fr; gap: 30px; }
-        @media(min-width: 900px) { .dashboard-sections { grid-template-columns: 1fr 2fr; } }
-        table { width: 100%; border-collapse: collapse; background: #ffffff; margin-top: 10px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
-        th, td { padding: 0.85rem 1rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; background: #ffffff; margin-top: 10px; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 0.85rem 1rem; text-align: left; border-bottom: 1px solid #e3e6ea; font-size: 0.9rem; }
         th { background-color: #f8f9fa; font-weight: 600; color: #475569; }
-        .table-responsive { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: white; }
+        .table-responsive { width: 100%; overflow-x: auto; border: 1px solid #e3e6ea; border-radius: 8px; background: white; }
     </style>
 </head>
 <body>
@@ -118,7 +113,7 @@ BASE_LAYOUT = """
 """
 
 # ==========================================
-# CONTROLLERS & DATA ROUTING
+# ROUTES
 # ==========================================
 @app.route('/')
 def index():
@@ -139,7 +134,7 @@ def login():
             else:
                 flash('Invalid username or password', 'error')
         except Exception:
-            flash('System establishing safe connection lanes. Please refresh.', 'error')
+            flash('Database processing error. Please refresh.', 'error')
             
     return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
     <div class="auth-wrapper">
@@ -154,10 +149,51 @@ def login():
                     <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-control" required placeholder="Enter password">
                 </div>
-                <button type="submit" class="btn btn-primary w-100" style="margin-top:10px;">Login</button>
+                <button type="submit" class="btn btn-primary W-100">Login</button>
             </form>
             <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
-                <span style="color:#64748b;">New clerk?</span> <a href="/register" style="color:var(--primary);text-decoration:none;font-weight:600;">Create Account</a>
+                <span style="color:#64748b;">New clerk?</span> <a href="/register" style="color:#007bff;text-decoration:none;font-weight:600;">Create Account</a>
+            </div>
+        </div>
+    </div>
+    """))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role', 'User')
+        try:
+            existing_user = User.query.filter_by(username=username).first()
+            if existing_user:
+                flash('Username already registered in database!', 'error')
+            else:
+                new_user = User(username=username, password=generate_password_hash(password), role=role)
+                db.session.add(new_user)
+                db.session.commit()
+                flash('Account created successfully! Please sign in.', 'success')
+                return redirect(url_for('login'))
+        except Exception:
+            flash('Database registration channel error.', 'error')
+            
+        return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
+    <div class="auth-wrapper">
+        <div class="card auth-card">
+            <h3 class="text-center mb-4 font-weight-bold" style="margin-top:0;color:#1e293b;">Account Sign In</h3>
+            <form method="POST">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-control" required placeholder="Enter username">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" required placeholder="Enter password">
+                </div>
+                <button type="submit" class="btn btn-primary W-100">Login</button>
+            </form>
+            <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
+                <span style="color:#64748b;">New clerk?</span> <a href="/register" style="color:#007bff;text-decoration:none;font-weight:600;">Create Account</a>
             </div>
         </div>
     </div>
@@ -202,10 +238,10 @@ def register():
                         <option value="Admin">Office Administrator (Admin)</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-success w-100" style="margin-top:10px;">Sign Up</button>
+                <button type="submit" class="btn btn-success W-100">Sign Up</button>
             </form>
             <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
-                <a href="/login" style="color:var(--primary);text-decoration:none;font-weight:600;">Back to Login</a>
+                <a href="/login" style="color:#007bff;text-decoration:none;font-weight:600;">Back to Login</a>
             </div>
         </div>
     </div>
@@ -235,13 +271,13 @@ def dashboard():
             <p>Active System Clerks</p>
         </div>
         <div class="stat-box">
-            <h3 style="color:var(--success);">Active</h3>
+            <h3 style="color:#28a745;">Active</h3>
             <p>Database Matrix Status</p>
         </div>
     </div>
 
-    <div class="card" style="margin-bottom: 30px;">
-        <h4 style="margin-top:0; color:#1e293b; border-bottom:2px solid var(--bg-color); padding-bottom:10px;">Register Business</h4>
+    <div class="card">
+        <h4 style="margin-top:0; color:#1e293b; border-bottom:2px solid #f0f2f5; padding-bottom:10px;">Register Business</h4>
         <form action="/add_business" method="POST">
             <div class="form-group">
                 <label class="form-label">Business Name</label>
@@ -261,13 +297,12 @@ def dashboard():
                     <option value="Construction">Construction</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary w-100" style="margin-top:5px;">Add to Registry</button>
+            <button type="submit" class="btn btn-primary">Add to Registry</button>
         </form>
     </div>
 
     <div class="card">
-        <h4 style="margin-top:0; color:#1e293b; border-bottom:2px solid var(--bg-color); padding-bottom:10px;">Trade Registry Database</h4>
-        
+        <h4 style="margin-top:0; color:#1e293b; border-bottom:2px solid #f0f2f5; padding-bottom:10px;">Trade Registry Database</h4>
         <h5 style="margin-bottom:10px; color:#475569;">Business Records</h5>
         <div class="table-responsive" style="margin-bottom:25px;">
             <table>
@@ -277,28 +312,11 @@ def dashboard():
                         <th>Business Name</th>
                         <th>License #</th>
                         <th>Sector</th>
-                        <th>Clerk (ID)</th>
+                        <th>Clerk</th>
                         {% if current_user.role == 'Admin' %}<th>Actions</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for b in business_list %}
-                    <tr>
-                        <td>{{ b.id }}</td>
-                        <td><strong>{{ b.business_name }}</strong></td>
-                        <td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">{{ b.license_number }}</code></td>
-                        <td>{{ b.sector }}</td>
-                        <td>{{ b.registrar.username }} ({{ b.user_id }})</td>
-                        {% if current_user.role == 'Admin' %}
-                        <td>
-                            <a href="/delete_business/{{ b.id }}" class="btn btn-danger btn-sm">Delete</a>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center" style="color:#94a3b8; padding:20px;">No business profiles found in registry database.</td>
-                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -342,29 +360,24 @@ def dashboard():
     </div>
     """), total_users=total_users, total_businesses=total_businesses, user_list=user_list, business_list=business_list)
 
-# ==========================================
-# TRANSACTION & EVENT PROCESSING OPERATIONS
-# ==========================================
 @app.route('/add_business', methods=['POST'])
 @login_required
 def add_business():
     b_name = request.form.get('business_name')
     b_license = request.form.get('license_number')
     b_sector = request.form.get('sector')
-    
     try:
         duplicate = Business.query.filter_by(license_number=b_license).first()
         if duplicate:
-            flash(f'Error: License number {b_license} already exists in registry!', 'error')
+            flash(f'Error: License number {b_license} already exists!', 'error')
         else:
             new_biz = Business(business_name=b_name, license_number=b_license, sector=b_sector, user_id=current_user.id)
             db.session.add(new_biz)
             db.session.commit()
             flash(f'Business "{b_name}" registered successfully!', 'success')
     except Exception:
-        flash('Transaction processing engine error. Rollback executed.', 'error')
         db.session.rollback()
-        
+        flash('Error executing transaction.', 'error')
     return redirect(url_for('dashboard'))
 
 @app.route('/delete_business/<int:id>')
