@@ -8,9 +8,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import openpyxl
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'trade-office-super-secret-key-98765')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zemene-gebeya-super-secret-key-112233')
 
-# FORCE STANDARD SYSTEM ROUTE: Stores database file directly in root to prevent folder permission crashes
+# SYSTEM OVERRIDE: Direct root folder database installation to bypass cloud write restrictions
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -26,8 +26,9 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)  
-    role = db.Column(db.String(20), nullable=False, default='User')
+    role = db.Column(db.String(20), nullable=False, default='Customer') # Admin, Merchant, Customer
     businesses = db.relationship('Business', backref='registrar', lazy=True, cascade="all, delete-orphan")
+    orders = db.relationship('Order', backref='buyer', lazy=True)
 
 class Business(db.Model):
     __tablename__ = 'Businesses'
@@ -35,11 +36,33 @@ class Business(db.Model):
     business_name = db.Column(db.String(150), nullable=False)
     license_number = db.Column(db.String(100), unique=True, nullable=False)
     sector = db.Column(db.String(100), nullable=False)
-    owner_name = db.Column(db.String(150), nullable=False, default="Not Specified")
-    investment_capital = db.Column(db.Float, nullable=False, default=0.0)
-    phone_number = db.Column(db.String(50), nullable=False, default="Not Specified")
+    owner_name = db.Column(db.String(150), nullable=False)
+    phone_number = db.Column(db.String(50), nullable=False)
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
+    products = db.relationship('Product', backref='shop', lazy=True, cascade="all, delete-orphan")
+
+class Product(db.Model):
+    __tablename__ = 'Products'
+    id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String(150), nullable=False)
+    category = db.Column(db.String(100), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=0)
+    cost_buy = db.Column(db.Float, nullable=False, default=0.0)  # Buying Cost
+    cost_sell = db.Column(db.Float, nullable=False, default=0.0) # Selling Cost
+    image_url = db.Column(db.String(500), nullable=True)         # Visual Display image URL
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    business_id = db.Column(db.Integer, db.ForeignKey('Businesses.id'), nullable=False)
+    order_items = db.relationship('Order', backref='product_profile', lazy=True)
+
+class Order(db.Model):
+    __tablename__ = 'Orders'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('Products.id'), nullable=False)
+    quantity_bought = db.Column(db.Integer, nullable=False)
+    total_price = db.Column(db.Float, nullable=False)
+    order_date = db.Column(db.DateTime, default=datetime.utcnow)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -53,53 +76,61 @@ BASE_LAYOUT = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gelan Guda Sub City Trade Office</title>
+    <title>Zemene Gebeya - Trade Platform</title>
     <style>
-        body { background-color: #f0f2f5; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #333333; }
-        .navbar { background: #1e293b; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .navbar h2 { margin: 0; font-size: 1.3rem; font-weight: 700; }
-        .nav-links a { color: #cbd5e1; text-decoration: none; margin-left: 15px; font-weight: 500; font-size: 0.95rem; }
+        body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #1e293b; }
+        .navbar { background: #0f172a; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .navbar h2 { margin: 0; font-size: 1.4rem; font-weight: 800; color: #38bdf8; letter-spacing: -0.5px; }
+        .nav-links { display: flex; align-items: center; gap: 20px; }
+        .nav-links a { color: #94a3b8; text-decoration: none; font-weight: 600; font-size: 0.95rem; transition: color 0.2s; }
         .nav-links a:hover { color: white; }
-        .main-container { max-width: 1200px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
-        .auth-wrapper { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-        .card { background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e3e6ea; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
-        .auth-card { max-width: 420px; }
+        .role-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; background: #38bdf8; color: #0f172a; }
+        .main-container { max-width: 1250px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
+        .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
         .text-center { text-align: center; }
-        .mb-3 { margin-bottom: 1rem; }
-        .mb-4 { margin-bottom: 1.5rem; }
         .form-group { margin-bottom: 1.25rem; text-align: left; }
         .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: #475569; }
-        .form-control, .form-select { display: block; width: 100%; padding: 0.6rem 0.75rem; font-size: 0.95rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-        .btn { display: inline-block; font-weight: 600; text-align: center; cursor: pointer; padding: 0.65rem 1.2rem; font-size: 0.95rem; border-radius: 6px; border: 1px solid transparent; text-decoration: none; box-sizing: border-box; width: 100%; }
-        .btn-primary { color: #ffffff; background-color: #007bff; }
-        .btn-success { color: #ffffff; background-color: #28a745; }
-        .btn-danger { color: #ffffff; background-color: #dc3545; }
-        .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.85rem; border-radius: 4px; width: auto; }
-        .alert { padding: 0.75rem 1.25rem; margin-bottom: 1.5rem; border-radius: 6px; font-weight: 500; font-size: 0.95rem; }
-        .alert-danger { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
-        .alert-success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-box { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e3e6ea; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center; }
-        .stat-box h3 { margin: 0 0 5px 0; font-size: 2rem; color: #007bff; }
-        .stat-box p { margin: 0; color: #64748b; font-weight: 500; font-size: 0.9rem; }
-        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap; }
-        .filter-bar .form-group { margin-bottom: 0; flex: 1; min-width: 200px; }
-        table { width: 100%; border-collapse: collapse; background: #ffffff; margin-top: 10px; border-radius: 8px; overflow: hidden; }
-        th, td { padding: 0.85rem 1rem; text-align: left; border-bottom: 1px solid #e3e6ea; font-size: 0.9rem; }
-        th { background-color: #f8f9fa; font-weight: 600; color: #475569; }
-        .table-responsive { width: 100%; overflow-x: auto; border: 1px solid #e3e6ea; border-radius: 8px; background: white; }
+        .form-control, .form-select { display: block; width: 100%; padding: 0.65rem 0.75rem; font-size: 0.95rem; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; background-color: #f8fafc; }
+        .btn { display: inline-block; font-weight: 700; text-align: center; cursor: pointer; padding: 0.7rem 1.5rem; font-size: 0.95rem; border-radius: 8px; border: 1px solid transparent; text-decoration: none; box-sizing: border-box; width: 100%; transition: all 0.2s; }
+        .btn-primary { color: #ffffff; background-color: #0284c7; }
+        .btn-success { color: #ffffff; background-color: #16a34a; }
+        .btn-danger { color: #ffffff; background-color: #dc2626; }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 6px; width: auto; }
+        .alert { padding: 1rem 1.25rem; margin-bottom: 1.5rem; border-radius: 8px; font-weight: 500; font-size: 0.95rem; }
+        .alert-danger { color: #991b1b; background-color: #fee2e2; border: 1px solid #fca5a5; }
+        .alert-success { color: #166534; background-color: #dcfce7; border: 1px solid #86efac; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .stat-box { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .stat-box h3 { margin: 0 0 5px 0; font-size: 2.2rem; color: #0284c7; font-weight: 800; }
+        .stat-box p { margin: 0; color: #64748b; font-weight: 600; font-size: 0.95rem; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 30px; margin-top: 20px; }
+        .product-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: transform 0.2s; }
+        .product-card:hover { transform: translateY(-4px); }
+        .product-img { width: 100%; height: 180px; object-fit: cover; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: #94a3b8; }
+        .product-info { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
+        .product-title { margin: 0 0 8px 0; font-size: 1.15rem; font-weight: 700; color: #0f172a; }
+        .product-meta { font-size: 0.85rem; color: #64748b; margin-bottom: 6px; }
+        .product-price { font-size: 1.3rem; font-weight: 800; color: #16a34a; margin: 12px 0; }
+        table { width: 100%; border-collapse: collapse; background: #ffffff; margin-top: 10px; border-radius: 10px; overflow: hidden; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+        th { background-color: #f1f5f9; font-weight: 700; color: #475569; }
+        .table-responsive { width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: white; }
     </style>
 </head>
 <body>
-    {% if current_user.is_authenticated %}
     <div class="navbar">
-        <h2>Gelan Guda Trade Office System</h2>
+        <h2>Zemene Gebeya ዘመነ ገበያ</h2>
         <div class="nav-links">
-            <span>Clerk: <strong>{{ current_user.username }}</strong> ({{ current_user.role }})</span>
-            <a href="{{ url_for('logout') }}">Logout</a>
+            {% if current_user.is_authenticated %}
+                <span>User: <strong>{{ current_user.username }}</strong> <span class="role-badge">{{ current_user.role }}</span></span>
+                <a href="{{ url_for('dashboard') }}">Dashboard Workspace</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a href="/login">Login Portal</a>
+                <a href="/register">Register Portal</a>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <div class="main-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -115,11 +146,11 @@ BASE_LAYOUT = """
 </html>
 """
 # ==========================================
-# AUTHENTICATION ROUTES
+# AUTHENTICATION ENGINE ROUTES
 # ==========================================
 @app.route('/')
 def index():
-    return redirect(url_for('login'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -136,12 +167,12 @@ def login():
             else:
                 flash('Invalid username or password', 'error')
         except Exception:
-            flash('Database processing error. Please refresh.', 'error')
+            flash('Database configuration reload. Please try again.', 'error')
             
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
-    <div class="auth-wrapper">
-        <div class="card auth-card">
-            <h3 class="text-center mb-4 font-weight-bold" style="margin-top:0;color:#1e293b;">Account Sign In</h3>
+    return render_template_string(BASE_LAYOUT + """
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+        <div class="card" style="max-width: 420px;">
+            <h3 class="text-center" style="margin-top:0;font-weight:800;font-size:1.5rem;color:#0f172a;">Account Login</h3>
             <form method="POST">
                 <div class="form-group">
                     <label class="form-label">Username</label>
@@ -151,25 +182,25 @@ def login():
                     <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-control" required placeholder="Enter password">
                 </div>
-                <button type="submit" class="btn btn-primary" style="width:100%;">Login</button>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Login</button>
             </form>
-            <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
-                <span style="color:#64748b;">New clerk?</span> <a href="/register" style="color:#007bff;text-decoration:none;font-weight:600;">Create Account</a>
+            <div class="text-center" style="margin-top: 20px; font-size:0.9rem; color:#64748b;">
+                New to the market? <a href="/register" style="color:#0284c7;text-decoration:none;font-weight:700;">Create Account</a>
             </div>
         </div>
     </div>
-    """))
+    """)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        role = request.form.get('role', 'User')
+        role = request.form.get('role', 'Customer')
         try:
             existing_user = User.query.filter_by(username=username).first()
             if existing_user:
-                flash('Username already registered in database!', 'error')
+                flash('Username already registered in system matrix!', 'error')
             else:
                 new_user = User(username=username, password=generate_password_hash(password), role=role)
                 db.session.add(new_user)
@@ -177,12 +208,12 @@ def register():
                 flash('Account created successfully! Please sign in.', 'success')
                 return redirect(url_for('login'))
         except Exception:
-            flash('Database registration channel error.', 'error')
+            flash('Registration terminal routing error.', 'error')
             
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
-    <div class="auth-wrapper">
-        <div class="card auth-card">
-            <h3 class="text-center mb-4 font-weight-bold" style="margin-top:0;color:#1e293b;">Register New Clerk</h3>
+    return render_template_string(BASE_LAYOUT + """
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+        <div class="card" style="max-width: 420px;">
+            <h3 class="text-center" style="margin-top:0;font-weight:800;font-size:1.5rem;color:#0f172a;">Create Market Account</h3>
             <form method="POST">
                 <div class="form-group">
                     <label class="form-label">Username</label>
@@ -190,325 +221,466 @@ def register():
                 </div>
                 <div class="form-group">
                     <label class="form-label">Password</label>
-                    <input type="password" name="password" class="form-control" required placeholder="Create secure password">
+                    <input type="password" name="password" class="form-control" required placeholder="Create password">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Authorization Clearance</label>
+                    <label class="form-label">Account Profile Type</label>
                     <select name="role" class="form-select">
-                        <option value="User">Standard Clerk (User)</option>
-                        <option value="Admin">Office Administrator (Admin)</option>
+                        <option value="Customer">Standard Customer (Buy Products)</option>
+                        <option value="Merchant">Business Businessman (Register Products)</option>
+                        <option value="Admin">System Administrator (Edit & Update All)</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-success" style="width:100%;">Sign Up</button>
+                <button type="submit" class="btn btn-success" style="width:100%; margin-top:10px;">Sign Up</button>
             </form>
             <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
-                <a href="/login" style="color:#007bff;text-decoration:none;font-weight:600;">Back to Login</a>
+                <a href="/login" style="color:#0284c7;text-decoration:none;font-weight:700;">Back to Login</a>
             </div>
         </div>
     </div>
-    """))
+    """)
 # ==========================================
-# MAIN DASHBOARD CONTROLLER
+# MAIN MARKETPLACE WORKSPACE INTERFACE
 # ==========================================
 @app.route('/dashboard')
-@login_required
 def dashboard():
     search_q = request.args.get('search', '').strip()
-    sector_filter = request.args.get('sector', '').strip()
+    category_filter = request.args.get('category', '').strip()
 
-    # Calculate Total System-Wide Stats
+    # Calculate System metrics tracking
     total_users = User.query.count()
-    total_businesses = Business.query.count()
+    total_products = Product.query.count()
+    total_orders = Order.query.count()
 
-    # Query setup according to authorization clearance levels
-    if current_user.role == 'Admin':
-        user_list = User.query.all()
-        b_query = Business.query
-    else:
-        user_list = [current_user]
-        b_query = Business.query.filter_by(user_id=current_user.id)
-
-    # Apply Advanced Search/Filter logic parameters
+    # Product query parameters filter configuration
+    p_query = Product.query
     if search_q:
-        b_query = b_query.filter((Business.business_name.contains(search_q)) | (Business.license_number.contains(search_q)) | (Business.owner_name.contains(search_q)))
-    if sector_filter:
-        b_query = b_query.filter_by(sector=sector_filter)
+        p_query = p_query.filter(Product.product_name.contains(search_q))
+    if category_filter:
+        p_query = p_query.filter_by(category=category_filter)
+    product_list = p_query.all()
 
-    business_list = b_query.all()
+    # Fetch dependent items for control lists
+    business_list = Business.query.all()
+    user_list = User.query.all()
+    all_orders = Order.query.all()
 
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
+    # Setup the shop listings matching permissions
+    if current_user.is_authenticated:
+        if current_user.role == 'Admin':
+            my_businesses = Business.query.all()
+        else:
+            my_businesses = Business.query.filter_by(user_id=current_user.id).all()
+    else:
+        my_businesses = []
+
+    return render_template_string(BASE_LAYOUT + """
+    {% block content %}
+    
+    <!-- SYSTEM SUMMARY METRICS -->
     <div class="stats-grid">
         <div class="stat-box">
-            <h3>{{ total_businesses }}</h3>
-            <p>Total Registered Businesses</p>
+            <h3>{{ total_products }}</h3>
+            <p>Total Products on Display</p>
+        </div>
+        <div class="stat-box">
+            <h3>{{ total_orders }}</h3>
+            <p>Successful Transactions Executed</p>
         </div>
         <div class="stat-box">
             <h3>{{ total_users }}</h3>
-            <p>Active System Clerks</p>
-        </div>
-        <div class="stat-box">
-            <h3 style="color:#28a745;">Active</h3>
-            <p>System Engine Integrity</p>
+            <p>Active Registered Market Entities</p>
         </div>
     </div>
 
+    <!-- MAIN PRODUCT GEBEYA GALLERY VIEW -->
     <div class="card">
-        <h4 style="margin-top:0; color:#1e293b; border-bottom:2px solid #f0f2f5; padding-bottom:10px;">Register New Business Record</h4>
-        <form action="/add_business" method="POST">
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:15px;">
-                <div class="form-group">
-                    <label class="form-label">Business Name</label>
-                    <input type="text" name="business_name" class="form-control" required placeholder="e.g. Gelan Agro Trading">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">License Number</label>
-                    <input type="text" name="license_number" class="form-control" required placeholder="e.g. BL-2026-XYZ">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Owner Full Name</label>
-                    <input type="text" name="owner_name" class="form-control" required placeholder="Enter full name">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Investment Capital (ETB)</label>
-                    <input type="number" step="0.01" name="investment_capital" class="form-control" required placeholder="e.g. 500000">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Contact Phone Number</label>
-                    <input type="text" name="phone_number" class="form-control" required placeholder="e.g. +2519...">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Business Sector</label>
-                    <select name="sector" class="form-select">
-                        <option value="Commercial / Trade">Commercial / Trade</option>
-                        <option value="Manufacturing">Manufacturing</option>
-                        <option value="Service Provider">Service Provider</option>
-                        <option value="Agriculture">Agriculture</option>
-                        <option value="Construction">Construction</option>
-                    </select>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Save Business Profile</button>
-        </form>
-    </div>
-
-    <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #f0f2f5; padding-bottom:10px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-            <h4 style="margin:0; color:#1e293b;">Search Ledger & Reporting Directory</h4>
-            <a href="/export_excel" class="btn btn-success" style="width:auto; font-size:0.9rem;">📥 Export Ledger to Excel</a>
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+            <h3 style="margin:0; font-weight:800; color:#0f172a;">Zemene Gebeya Market Showcase</h3>
+            <p style="margin:0; color:#64748b; font-weight:600;">Interactive visual stock listings directory</p>
         </div>
 
-        <form method="GET" action="/dashboard" class="filter-bar">
-            <div class="form-group">
-                <label class="form-label">Search Query</label>
-                <input type="text" name="search" class="form-control" value="{{ search_q }}" placeholder="Search Name, License, Owner...">
+        <form method="GET" action="/dashboard" style="display:flex; gap:15px; margin-bottom:25px; align-items:flex-end; flex-wrap:wrap;">
+            <div style="flex:2; min-width:240px;">
+                <label class="form-label">Look Up Product</label>
+                <input type="text" name="search" class="form-control" value="{{ search_q }}" placeholder="Search products by name...">
             </div>
-            <div class="form-group">
-                <label class="form-label">Sector Filter</label>
-                <select name="sector" class="form-select">
-                    <option value="">All Sectors</option>
-                    <option value="Commercial / Trade" {% if sector_filter == 'Commercial / Trade' %}selected{% endif %}>Commercial / Trade</option>
-                    <option value="Manufacturing" {% if sector_filter == 'Manufacturing' %}selected{% endif %}>Manufacturing</option>
-                    <option value="Service Provider" {% if sector_filter == 'Service Provider' %}selected{% endif %}>Service Provider</option>
-                    <option value="Agriculture" {% if sector_filter == 'Agriculture' %}selected{% endif %}>Agriculture</option>
-                    <option value="Construction" {% if sector_filter == 'Construction' %}selected{% endif %}>Construction</option>
+            <div style="flex:1; min-width:180px;">
+                <label class="form-label">Category Filter</label>
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    <option value="Electronics" {% if category_filter == 'Electronics' %}selected{% endif %}>Electronics</option>
+                    <option value="Clothing & Fashion" {% if category_filter == 'Clothing & Fashion' %}selected{% endif %}>Clothing & Fashion</option>
+                    <option value="Agriculture & Food" {% if category_filter == 'Agriculture & Food' %}selected{% endif %}>Agriculture & Food</option>
+                    <option value="Cosmetics & Beauty" {% if category_filter == 'Cosmetics & Beauty' %}selected{% endif %}>Cosmetics & Beauty</option>
+                    <option value="Home & Construction" {% if category_filter == 'Home & Construction' %}selected{% endif %}>Home & Construction</option>
                 </select>
             </div>
             <div style="display:flex; gap:10px;">
-                <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.5rem;">Filter</button>
-                <a href="/dashboard" class="btn btn-danger" style="padding: 0.6rem 1rem; background-color:#64748b;">Reset</a>
+                <button type="submit" class="btn btn-primary" style="padding:0.65rem 1.5rem;">Search</button>
+                <a href="/dashboard" class="btn btn-danger" style="padding:0.65rem 1rem; background-color:#64748b;">Reset</a>
             </div>
         </form>
 
-        <h5 style="margin-bottom:10px; color:#475569;">Business Profile Ledger</h5>
-        <div class="table-responsive" style="margin-bottom:25px;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Business Name</th>
-                        <th>License #</th>
-                        <th>Owner</th>
-                        <th>Capital (ETB)</th>
-                        <th>Phone</th>
-                        <th>Sector</th>
-                        <th>Clerk</th>
-                        {% if current_user.role == 'Admin' %}<th>Actions</th>{% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for b in business_list %}
-                    <tr>
-                        <td>{{ b.id }}</td>
-                        <td><strong>{{ b.business_name }}</strong></td>
-                        <td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">{{ b.license_number }}</code></td>
-                        <td>{{ b.owner_name }}</td>
-                        <td>{{ "{:,.2f}".format(b.investment_capital) }}</td>
-                        <td>{{ b.phone_number }}</td>
-                        <td>{{ b.sector }}</td>
-                        <td>{{ b.registrar.username }}</td>
-                        {% if current_user.role == 'Admin' %}
-                        <td>
-                            <a href="/delete_business/{{ b.id }}" class="btn btn-danger btn-sm">Delete</a>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="9" class="text-center" style="color:#94a3b8; padding:20px;">No business profiles found matching parameters.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <div class="product-grid">
+            {% for p in product_list %}
+            <div class="product-card">
+                <div class="product-img">📦</div>
+                <div class="product-info">
+                    <span style="font-size:0.75rem; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px; color:#0284c7;">{{ p.category }}</span>
+                    <h4 class="product-title">{{ p.product_name }}</h4>
+                    <div class="product-meta">Shop Vendor: <strong>{{ p.shop.business_name }}</strong></div>
+                    <div class="product-meta">Total Stock Available: <strong style="color:#0f172a;">{{ p.quantity }} units</strong></div>
+                    
+                    {% if current_user.is_authenticated and current_user.role == 'Admin' %}
+                        <div style="background:#f1f5f9; padding:8px; border-radius:6px; margin:8px 0; font-size:0.8rem;">
+                            <div>Buying Cost: <strong>{{ "{:,.2f}".format(p.cost_buy) }} ETB</strong></div>
+                            <div>Selling Cost: <strong>{{ "{:,.2f}".format(p.cost_sell) }} ETB</strong></div>
+                        </div>
+                    {% endif %}
 
-        <h5 style="margin-bottom:10px; color:#475569;">Office Clerk Directory</h5>
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>User ID</th>
-                        <th>Username</th>
-                        <th>System Role</th>
-                        {% if current_user.role == 'Admin' %}<th>Administrative Action</th>{% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for u in user_list %}
-                    <tr>
-                        <td>{{ u.id }}</td>
-                        <td>{{ u.username }}</td>
-                        <td>
-                            <span style="padding:3px 8px; border-radius:12px; font-size:0.8rem; font-weight:bold; background:{{ '#dbeafe;color:#1e40af;' if u.role == 'Admin' else '#f1f5f9;color:#475569;' }}">
-                                {{ u.role }}
-                            </span>
-                        </td>
-                        {% if current_user.role == 'Admin' %}
-                        <td>
-                            {% if u.id != current_user.id %}
-                            <a href="/delete_user/{{ u.id }}" class="btn btn-danger btn-sm">Remove</a>
+                    <div class="product-price">{{ "{:,.2f}".format(p.cost_sell) }} ETB</div>
+
+                    <div style="margin-top:auto; padding-top:15px; border-top:1px solid #f1f5f9;">
+                        {% if current_user.is_authenticated %}
+                            {% if current_user.role == 'Admin' %}
+                                <a href="/edit_product_page/{{ p.id }}" class="btn btn-primary btn-sm" style="background:#ea580c; display:block; text-align:center; margin-bottom:5px;">Edit & Update Profile</a>
+                                <a href="/delete_product/{{ p.id }}" class="btn btn-danger btn-sm" style="display:block; text-align:center;">Delete Product</a>
                             {% else %}
-                            <span style="color:#94a3b8; font-size:0.85rem; font-style:italic;">Current Session</span>
+                                <form action="/buy_product/{{ p.id }}" method="POST" style="display:flex; gap:5px;">
+                                    <input type="number" name="buy_qty" class="form-control" value="1" min="1" max="{{ p.quantity }}" style="width:70px; margin-bottom:0; padding:0.4rem;">
+                                    <button type="submit" class="btn btn-success btn-sm" style="flex-grow:1;">Buy Now</button>
+                                </form>
                             {% endif %}
-                        </td>
+                        {% else %}
+                            <a href="/login" class="btn btn-primary btn-sm" style="display:block; text-align:center; background:#475569;">Sign In to Register / Buy</a>
                         {% endif %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="grid-column: 1/-1; text-align:center; padding:40px; color:#94a3b8; font-weight:600;">No matching display profiles on market showcase right now.</div>
+            {% endfor %}
         </div>
     </div>
-    """), total_users=total_users, total_businesses=total_businesses, user_list=user_list, business_list=business_list, search_q=search_q, sector_filter=sector_filter)
 
+    <!-- MERCHANT SECTION: REGISTER BUSINESS SHOP & INVENTORY -->
+    {% if current_user.is_authenticated and (current_user.role == 'Merchant' or current_user.role == 'Admin') %}
+    <div class="card">
+        <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#0f172a;">Business Businessman Console</h3>
+        
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:30px; margin-top:20px;">
+            <!-- Register Business Shop -->
+            <div>
+                <h4 style="margin-top:0; color:#475569;">Step 1: Register Shop Profile</h4>
+                <form action="/add_merchant_business" method="POST">
+                    <div class="form-group">
+                        <label class="form-label">Shop / Businessman Name</label>
+                        <input type="text" name="b_name" class="form-control" required placeholder="e.g. Al-Amudi Technology Shop">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Trade License Number</label>
+                        <input type="text" name="b_license" class="form-control" required placeholder="e.g. TLD-8899-ET">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone Number</label>
+                        <input type="text" name="b_phone" class="form-control" required placeholder="e.g. +251...">
+                    </div>
+                    <input type="hidden" name="b_sector" value="Retail Store Marketplace">
+                    <input type="hidden" name="b_owner" value="{{ current_user.username }}">
+                    <button type="submit" class="btn btn-primary">Register Store Profile</button>
+                </form>
+            </div>
+
+            <!-- Register Products Inventory -->
+            <div>
+                <h4 style="margin-top:0; color:#475569;">Step 2: Add Inventory Product</h4>
+                <form action="/add_merchant_product" method="POST">
+                    <div class="form-group">
+                        <label class="form-label">Select Registered Shop</label>
+                        <select name="p_business_id" class="form-select" required>
+                            {% for mb in my_businesses %}
+                            <option value="{{ mb.id }}">{{ mb.business_name }}</option>
+                            {% else %}
+                            <option value="">Register a shop first on the left form</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Product Item Name</label>
+                        <input type="text" name="p_name" class="form-control" required placeholder="e.g. Samsung Galaxy S24 Ultra">
+                    </div>
+                <div class="form-group">
+                    <label class="form-label">Product Category</label>
+                    <select name="p_category" class="form-select">
+                        <option value="Electronics">Electronics</option>
+                        <option value="Clothing & Fashion">Clothing & Fashion</option>
+                        <option value="Agriculture & Food">Agriculture & Food</option>
+                        <option value="Cosmetics & Beauty">Cosmetics & Beauty</option>
+                        <option value="Home & Construction">Home & Construction</option>
+                    </select>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="form-group">
+                        <label class="form-label">Cost of BUY (Cost Price)</label>
+                        <input type="number" step="0.01" name="p_buy" class="form-control" required placeholder="ETB">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cost of SELL (Retail Price)</label>
+                        <input type="number" step="0.01" name="p_sell" class="form-control" required placeholder="ETB">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Total Product Stock Quantity</label>
+                    <input type="number" name="p_qty" class="form-control" required placeholder="Units count">
+                </div>
+                <button type="submit" class="btn btn-success">Upload Product to Gebeya</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% if current_user.is_authenticated and current_user.role == 'Admin' %}
+<div class="card">
+    <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#ea580c;">Administrative Database Ledgers</h3>
+    
+    <h5 style="margin-bottom:10px; color:#475569;">All System Orders History</h5>
+    <div class="table-responsive" style="margin-bottom:25px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Buyer Username</th>
+                    <th>Product Purchased</th>
+                    <th>Quantity</th>
+                    <th>Total Transaction Price</th>
+                    <th>Transaction Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in all_orders %}
+                <tr>
+                    <td>{{ o.id }}</td>
+                    <td><strong>{{ o.buyer.username }}</strong></td>
+                    <td>{{ o.product_profile.product_name }}</td>
+                    <td>{{ o.quantity_bought }} units</td>
+                    <td><strong style="color:#16a34a;">{{ "{:,.2f}".format(o.total_price) }} ETB</strong></td>
+                    <td>{{ o.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center" style="color:#94a3b8; padding:20px;">No simulated transactional history verified inside system.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <h5 style="margin-bottom:10px; color:#475569;">System Clerk Directory</h5>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Clearance Authorization Role</th>
+                    <th>Administrative Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in user_list %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td><span class="role-badge" style="background:{{ '#ea580c' if u.role == 'Admin' else '#64748b' }};color:white;">{{ u.role }}</span></td>
+                    <td>
+                        {% if u.id != current_user.id %}
+                        <a href="/delete_system_user/{{ u.id }}" class="btn btn-danger btn-sm">Purge Account</a>
+                        {% else %}
+                        <span style="color:#94a3b8; font-style:italic;">Active Session</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+"""), total_users=total_users, total_products=total_products, total_orders=total_orders, product_list=product_list, business_list=business_list, user_list=user_list, all_orders=all_orders, search_q=search_q, category_filter=category_filter, my_businesses=my_businesses)
 # ==========================================
-# ADVANCED REGISTRY MANAGEMENT OPERATIONS
+# TRANSACTION & UPDATE LOGIC ENDPOINTS
 # ==========================================
-@app.route('/add_business', methods=['POST'])
+@app.route('/add_merchant_business', methods=['POST'])
 @login_required
-def add_business():
-    b_name = request.form.get('business_name')
-    b_license = request.form.get('license_number')
-    b_sector = request.form.get('sector')
-    b_owner = request.form.get('owner_name')
-    b_capital = float(request.form.get('investment_capital', 0.0))
-    b_phone = request.form.get('phone_number')
+def add_merchant_business():
+    name = request.form.get('b_name')
+    license = request.form.get('b_license')
+    sector = request.form.get('b_sector')
+    owner = request.form.get('b_owner')
+    phone = request.form.get('b_phone')
     try:
-        duplicate = Business.query.filter_by(license_number=b_license).first()
+        duplicate = Business.query.filter_by(license_number=license).first()
         if duplicate:
-            flash(f'Error: License number {b_license} already exists!', 'error')
+            flash(f'Error: License {license} already registered!', 'error')
         else:
-            new_biz = Business(
-                business_name=b_name, license_number=b_license, sector=b_sector,
-                owner_name=b_owner, investment_capital=b_capital, phone_number=b_phone,
-                user_id=current_user.id
-            )
-            db.session.add(new_biz)
+            new_store = Business(business_name=name, license_number=license, sector=sector, owner_name=owner, phone_number=phone, user_id=current_user.id)
+            db.session.add(new_store)
             db.session.commit()
-            flash(f'Business "{b_name}" registered successfully!', 'success')
+            flash(f'Store Profile "{name}" successfully opened in marketplace.', 'success')
     except Exception:
         db.session.rollback()
-        flash('Error executing transaction entries.', 'error')
+        flash('Database processing error.', 'error')
     return redirect(url_for('dashboard'))
 
-@app.route('/export_excel')
+@app.route('/add_merchant_product', methods=['POST'])
 @login_required
-def export_excel():
+def add_merchant_product():
+    biz_id = request.form.get('p_business_id')
+    name = request.form.get('p_name')
+    cat = request.form.get('p_category')
+    buy = float(request.form.get('p_buy', 0.0))
+    sell = float(request.form.get('p_sell', 0.0))
+    qty = int(request.form.get('p_qty', 0))
     try:
-        if current_user.role == 'Admin':
-            records = Business.query.all()
+        if not biz_id:
+            flash('Error: You must create and link a store folder first!', 'error')
         else:
-            records = Business.query.filter_by(user_id=current_user.id).all()
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Business Ledger"
-        # Table Headers setup
-        headers = ["Record ID", "Business Name", "License Number", "Owner Full Name", "Investment Capital (ETB)", "Phone Number", "Sector", "Registered By Clerk"]
-        ws.append(headers)
-        # Append Rows
-        for r in records:
-            ws.append([r.id, r.business_name, r.license_number, r.owner_name, r.investment_capital, r.phone_number, r.sector, r.registrar.username])
-        file_stream = io.BytesIO()
-        wb.save(file_stream)
-        file_stream.seek(0)
-        return send_file(
-            file_stream,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            as_attachment=True,
-            download_name=f"Trade_Registry_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        )
-    except Exception:
-        flash('Error compiling reporting excel engine spreadsheet document.', 'error')
-        return redirect(url_for('dashboard'))
-
-@app.route('/delete_business/<int:id>')
-@login_required
-def delete_business(id):
-    if current_user.role != 'Admin':
-        flash('Unauthorized permission level.', 'error')
-        return redirect(url_for('dashboard'))
-    try:
-        target = Business.query.get_or_404(id)
-        db.session.delete(target)
-        db.session.commit()
-        flash('Business record removed from active registry data rows.', 'success')
+            new_prod = Product(product_name=name, category=cat, cost_buy=buy, cost_sell=sell, quantity=qty, business_id=int(biz_id))
+            db.session.add(new_prod)
+            db.session.commit()
+            flash(f'Product "{name}" added to showcase registry.', 'success')
     except Exception:
         db.session.rollback()
-        flash('Error executing row purge.', 'error')
+        flash('Inventory creation error mapping columns.', 'error')
     return redirect(url_for('dashboard'))
 
-@app.route('/delete_user/<int:id>')
+@app.route('/buy_product/<int:id>', methods=['POST'])
 @login_required
-def delete_user(id):
+def buy_product(id):
+    qty_to_buy = int(request.form.get('buy_qty', 1))
+    target_product = Product.query.get_or_404(id)
+    if target_product.quantity < qty_to_buy:
+        flash(f'Insufficient marketplace quantities. Only {target_product.quantity} items left.', 'error')
+    else:
+        try:
+            target_product.quantity -= qty_to_buy
+            tot_price = qty_to_buy * target_product.cost_sell
+            new_order = Order(user_id=current_user.id, product_id=target_product.id, quantity_bought=qty_to_buy, total_price=tot_price)
+            db.session.add(new_order)
+            db.session.commit()
+            flash(f'Transaction complete! Purchased {qty_to_buy} units of {target_product.product_name} for {tot_price} ETB.', 'success')
+        except Exception:
+            db.session.rollback()
+            flash('Checkout operational crash.', 'error')
+    return redirect(url_for('dashboard'))
+@app.route('/edit_product_page/<int:id>')
+@login_required
+def edit_product_page(id):
     if current_user.role != 'Admin':
-        flash('Unauthorized permission level.', 'error')
+        flash('Unauthorized permissions.', 'error')
         return redirect(url_for('dashboard'))
-    if id == current_user.id:
-        flash('Cannot terminate active system session.', 'error')
+    p = Product.query.get_or_404(id)
+    return render_template_string(BASE_LAYOUT + f"""
+    <div class="card" style="max-width: 500px; margin: 40px auto;">
+        <h3 style="margin-top:0; color:#ea580c;">Administrative Product Editor</h3>
+        <form action="/update_product/{p.id}" method="POST">
+            <div class="form-group">
+                <label class="form-label">Product Name</label>
+                <input type="text" name="p_name" class="form-control" value="{p.product_name}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Category</label>
+                <input type="text" name="p_cat" class="form-control" value="{p.category}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Stock Quantity Available</label>
+                <input type="number" name="p_qty" class="form-control" value="{p.quantity}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Cost of BUY (ETB)</label>
+                <input type="number" step="0.01" name="p_buy" class="form-control" value="{p.cost_buy}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Cost of SELL (ETB)</label>
+                <input type="number" step="0.01" name="p_sell" class="form-control" value="{p.cost_sell}" required>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="btn btn-success">Update Entry Data</button>
+                <a href="/dashboard" class="btn btn-danger" style="line-height:2.3; background:#64748b;">Cancel</a>
+            </div>
+        </form>
+    </div>
+    """)
+
+@app.route('/update_product/<int:id>', methods=['POST'])
+@login_required
+def update_product(id):
+    if current_user.role != 'Admin':
+        flash('Unauthorized entry permissions level.', 'error')
         return redirect(url_for('dashboard'))
     try:
-        target = User.query.get_or_404(id)
-        db.session.delete(target)
+        p = Product.query.get_or_404(id)
+        p.product_name = request.form.get('p_name')
+        p.category = request.form.get('p_cat')
+        p.quantity = int(request.form.get('p_qty', 0))
+        p.cost_buy = float(request.form.get('p_buy', 0.0))
+        p.cost_sell = float(request.form.get('p_sell', 0.0))
         db.session.commit()
-        flash('User token entity successfully removed.', 'success')
+        flash('Product configuration successfully updated by Administration.', 'success')
     except Exception:
         db.session.rollback()
-        flash('Error executing row purge.', 'error')
+        flash('Operational update failure.', 'error')
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete_product/<int:id>')
+@login_required
+def delete_product(id):
+    if current_user.role != 'Admin':
+        flash('Unauthorized permissions level.', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        p = Product.query.get_or_404(id)
+        db.session.delete(p)
+        db.session.commit()
+        flash('Product profile successfully dropped from marketplace.', 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Purge failure.', 'error')
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete_system_user/<int:id>')
+@login_required
+def delete_system_user(id):
+    if current_user.role != 'Admin':
+        flash('Unauthorized administration clearance.', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        u = User.query.get_or_404(id)
+        db.session.delete(u)
+        db.session.commit()
+        flash('User database matrix row removed.', 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Purge failure.', 'error')
     return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('Logged out successfully.', 'success')
+    flash('Logged out cleanly from platform workspace.', 'success')
     return redirect(url_for('login'))
 
-# Isolated execution architecture seeding thread
+# Automated initialization logic execution sequence
 with app.app_context():
     db.create_all()
     try:
         if not User.query.filter_by(username='admin').first():
             admin_user = User(
-                username='admin',
-                password=generate_password_hash('admin123'),
+                username='admin', 
+                password=generate_password_hash('admin123'), 
                 role='Admin'
             )
             db.session.add(admin_user)
