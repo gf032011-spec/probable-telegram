@@ -86,7 +86,7 @@ BASE_LAYOUT = """
         .nav-links a:hover { color: white; }
         .role-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; background: #38bdf8; color: #0f172a; }
         .main-container { max-width: 1250px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
-        .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
+        .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
         .text-center { text-align: center; }
         .form-group { margin-bottom: 1.25rem; text-align: left; }
         .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: #475569; }
@@ -100,9 +100,9 @@ BASE_LAYOUT = """
         .alert-danger { color: #991b1b; background-color: #fee2e2; border: 1px solid #fca5a5; }
         .alert-success { color: #166534; background-color: #dcfce7; border: 1px solid #86efac; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 25px; margin-bottom: 30px; }
-        .stat-box { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-        .stat-box h3 { margin: 0 0 5px 0; font-size: 2.2rem; color: #0284c7; font-weight: 800; }
-        .stat-box p { margin: 0; color: #64748b; font-weight: 600; font-size: 0.95rem; }
+        .stats-grid .stat-box { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .stats-grid .stat-box h3 { margin: 0 0 5px 0; font-size: 2.2rem; color: #0284c7; font-weight: 800; }
+        .stats-grid .stat-box p { margin: 0; color: #64748b; font-weight: 600; font-size: 0.95rem; }
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 30px; margin-top: 20px; }
         .product-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: transform 0.2s; }
         .product-card:hover { transform: translateY(-4px); }
@@ -247,12 +247,10 @@ def dashboard():
     search_q = request.args.get('search', '').strip()
     category_filter = request.args.get('category', '').strip()
 
-    # Calculate System metrics tracking
     total_users = User.query.count()
     total_products = Product.query.count()
     total_orders = Order.query.count()
 
-    # Product query parameters filter configuration
     p_query = Product.query
     if search_q:
         p_query = p_query.filter(Product.product_name.contains(search_q))
@@ -260,12 +258,10 @@ def dashboard():
         p_query = p_query.filter_by(category=category_filter)
     product_list = p_query.all()
 
-    # Fetch dependent items for control lists
     business_list = Business.query.all()
     user_list = User.query.all()
     all_orders = Order.query.all()
 
-    # Setup the shop listings matching permissions
     if current_user.is_authenticated:
         if current_user.role == 'Admin':
             my_businesses = Business.query.all()
@@ -277,7 +273,6 @@ def dashboard():
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
     
-    <!-- SYSTEM SUMMARY METRICS -->
     <div class="stats-grid">
         <div class="stat-box">
             <h3>{{ total_products }}</h3>
@@ -293,7 +288,6 @@ def dashboard():
         </div>
     </div>
 
-    <!-- MAIN PRODUCT GEBEYA GALLERY VIEW -->
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
             <h3 style="margin:0; font-weight:800; color:#0f172a;">Zemene Gebeya Market Showcase</h3>
@@ -364,13 +358,11 @@ def dashboard():
         </div>
     </div>
 
-    <!-- MERCHANT SECTION: REGISTER BUSINESS SHOP & INVENTORY -->
     {% if current_user.is_authenticated and (current_user.role == 'Merchant' or current_user.role == 'Admin') %}
     <div class="card">
         <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#0f172a;">Business Businessman Console</h3>
         
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:30px; margin-top:20px;">
-            <!-- Register Business Shop -->
             <div>
                 <h4 style="margin-top:0; color:#475569;">Step 1: Register Shop Profile</h4>
                 <form action="/add_merchant_business" method="POST">
@@ -392,7 +384,6 @@ def dashboard():
                 </form>
             </div>
 
-            <!-- Register Products Inventory -->
             <div>
                 <h4 style="margin-top:0; color:#475569;">Step 2: Add Inventory Product</h4>
                 <form action="/add_merchant_product" method="POST">
@@ -410,12 +401,12 @@ def dashboard():
                         <label class="form-label">Product Item Name</label>
                         <input type="text" name="p_name" class="form-control" required placeholder="e.g. Samsung Galaxy S24 Ultra">
                     </div>
-                <div class="form-group">
-                    <label class="form-label">Product Category</label>
-                    <select name="p_category" class="form-select">
-                        <option value="Electronics">Electronics</option>
-                        <option value="Clothing & Fashion">Clothing & Fashion</option>
-                        <option value="Agriculture & Food">Agriculture & Food</option>
+                    <div class="form-group">
+                        <label class="form-label">Product Category</label>
+                        <select name="p_category" class="form-select">
+                            <option value="Electronics">Electronics</option>
+                            <option value="Clothing & Fashion">Clothing & Fashion</option>
+                            <option value="Agriculture & Food">Agriculture & Food</option>
                         <option value="Cosmetics & Beauty">Cosmetics & Beauty</option>
                         <option value="Home & Construction">Home & Construction</option>
                     </select>
@@ -440,6 +431,7 @@ def dashboard():
     </div>
 </div>
 {% endif %}
+
 {% if current_user.is_authenticated and current_user.role == 'Admin' %}
 <div class="card">
     <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#ea580c;">Administrative Database Ledgers</h3>
@@ -509,6 +501,8 @@ def dashboard():
 
 {% endblock %}
 """), total_users=total_users, total_products=total_products, total_orders=total_orders, product_list=product_list, business_list=business_list, user_list=user_list, all_orders=all_orders, search_q=search_q, category_filter=category_filter, my_businesses=my_businesses)
+
+
 # ==========================================
 # TRANSACTION & UPDATE LOGIC ENDPOINTS
 # ==========================================
@@ -575,6 +569,7 @@ def buy_product(id):
             db.session.rollback()
             flash('Checkout operational crash.', 'error')
     return redirect(url_for('dashboard'))
+
 @app.route('/edit_product_page/<int:id>')
 @login_required
 def edit_product_page(id):
