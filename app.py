@@ -10,7 +10,6 @@ import openpyxl
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zemene-gebeya-super-secret-key-112233')
 
-# SYSTEM OVERRIDE: Direct root folder database installation to bypass cloud write restrictions
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -18,15 +17,12 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# ==========================================
-# DATABASE SCHEMAS & MODELS
-# ==========================================
 class User(UserMixin, db.Model):
     __tablename__ = 'Users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)  
-    role = db.Column(db.String(20), nullable=False, default='Customer') # Admin, Merchant, Customer
+    role = db.Column(db.String(20), nullable=False, default='Customer')
     businesses = db.relationship('Business', backref='registrar', lazy=True, cascade="all, delete-orphan")
     orders = db.relationship('Order', backref='buyer', lazy=True)
 
@@ -48,9 +44,9 @@ class Product(db.Model):
     product_name = db.Column(db.String(150), nullable=False)
     category = db.Column(db.String(100), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=0)
-    cost_buy = db.Column(db.Float, nullable=False, default=0.0)  # Buying Cost
-    cost_sell = db.Column(db.Float, nullable=False, default=0.0) # Selling Cost
-    image_url = db.Column(db.String(500), nullable=True)         # Visual Display image URL
+    cost_buy = db.Column(db.Float, nullable=False, default=0.0)
+    cost_sell = db.Column(db.Float, nullable=False, default=0.0)
+    image_url = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     business_id = db.Column(db.Integer, db.ForeignKey('Businesses.id'), nullable=False)
     order_items = db.relationship('Order', backref='product_profile', lazy=True)
@@ -67,9 +63,6 @@ class Order(db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-# ==========================================
-# UNIVERSAL RESPONSIVE GRAPHICAL INTERFACE
-# ==========================================
 BASE_LAYOUT = """
 <!DOCTYPE html>
 <html lang="en">
@@ -131,7 +124,6 @@ BASE_LAYOUT = """
             {% endif %}
         </div>
     </div>
-
     <div class="main-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -145,9 +137,6 @@ BASE_LAYOUT = """
 </body>
 </html>
 """
-# ==========================================
-# AUTHENTICATION ENGINE ROUTES
-# ==========================================
 @app.route('/')
 def index():
     return redirect(url_for('dashboard'))
@@ -239,29 +228,23 @@ def register():
         </div>
     </div>
     """)
-# ==========================================
-# MAIN MARKETPLACE WORKSPACE INTERFACE
-# ==========================================
+
 @app.route('/dashboard')
 def dashboard():
     search_q = request.args.get('search', '').strip()
     category_filter = request.args.get('category', '').strip()
-
     total_users = User.query.count()
     total_products = Product.query.count()
     total_orders = Order.query.count()
-
     p_query = Product.query
     if search_q:
         p_query = p_query.filter(Product.product_name.contains(search_q))
     if category_filter:
         p_query = p_query.filter_by(category=category_filter)
     product_list = p_query.all()
-
     business_list = Business.query.all()
     user_list = User.query.all()
     all_orders = Order.query.all()
-
     if current_user.is_authenticated:
         if current_user.role == 'Admin':
             my_businesses = Business.query.all()
@@ -269,10 +252,8 @@ def dashboard():
             my_businesses = Business.query.filter_by(user_id=current_user.id).all()
     else:
         my_businesses = []
-
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
-    
     <div class="stats-grid">
         <div class="stat-box">
             <h3>{{ total_products }}</h3>
@@ -287,13 +268,11 @@ def dashboard():
             <p>Active Registered Market Entities</p>
         </div>
     </div>
-
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
             <h3 style="margin:0; font-weight:800; color:#0f172a;">Zemene Gebeya Market Showcase</h3>
             <p style="margin:0; color:#64748b; font-weight:600;">Interactive visual stock listings directory</p>
         </div>
-
         <form method="GET" action="/dashboard" style="display:flex; gap:15px; margin-bottom:25px; align-items:flex-end; flex-wrap:wrap;">
             <div style="flex:2; min-width:240px;">
                 <label class="form-label">Look Up Product</label>
@@ -315,7 +294,6 @@ def dashboard():
                 <a href="/dashboard" class="btn btn-danger" style="padding:0.65rem 1rem; background-color:#64748b;">Reset</a>
             </div>
         </form>
-
         <div class="product-grid">
             {% for p in product_list %}
             <div class="product-card">
@@ -325,16 +303,13 @@ def dashboard():
                     <h4 class="product-title">{{ p.product_name }}</h4>
                     <div class="product-meta">Shop Vendor: <strong>{{ p.shop.business_name }}</strong></div>
                     <div class="product-meta">Total Stock Available: <strong style="color:#0f172a;">{{ p.quantity }} units</strong></div>
-                    
                     {% if current_user.is_authenticated and current_user.role == 'Admin' %}
                         <div style="background:#f1f5f9; padding:8px; border-radius:6px; margin:8px 0; font-size:0.8rem;">
                             <div>Buying Cost: <strong>{{ "{:,.2f}".format(p.cost_buy) }} ETB</strong></div>
                             <div>Selling Cost: <strong>{{ "{:,.2f}".format(p.cost_sell) }} ETB</strong></div>
                         </div>
                     {% endif %}
-
                     <div class="product-price">{{ "{:,.2f}".format(p.cost_sell) }} ETB</div>
-
                     <div style="margin-top:auto; padding-top:15px; border-top:1px solid #f1f5f9;">
                         {% if current_user.is_authenticated %}
                             {% if current_user.role == 'Admin' %}
@@ -361,7 +336,6 @@ def dashboard():
     {% if current_user.is_authenticated and (current_user.role == 'Merchant' or current_user.role == 'Admin') %}
     <div class="card">
         <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#0f172a;">Business Businessman Console</h3>
-        
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:30px; margin-top:20px;">
             <div>
                 <h4 style="margin-top:0; color:#475569;">Step 1: Register Shop Profile</h4>
@@ -383,7 +357,6 @@ def dashboard():
                     <button type="submit" class="btn btn-primary">Register Store Profile</button>
                 </form>
             </div>
-
             <div>
                 <h4 style="margin-top:0; color:#475569;">Step 2: Add Inventory Product</h4>
                 <form action="/add_merchant_product" method="POST">
@@ -407,105 +380,99 @@ def dashboard():
                             <option value="Electronics">Electronics</option>
                             <option value="Clothing & Fashion">Clothing & Fashion</option>
                             <option value="Agriculture & Food">Agriculture & Food</option>
-                        <option value="Cosmetics & Beauty">Cosmetics & Beauty</option>
-                        <option value="Home & Construction">Home & Construction</option>
-                    </select>
-                </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div class="form-group">
-                        <label class="form-label">Cost of BUY (Cost Price)</label>
-                        <input type="number" step="0.01" name="p_buy" class="form-control" required placeholder="ETB">
+                            <option value="Cosmetics & Beauty">Cosmetics & Beauty</option>
+                            <option value="Home & Construction">Home & Construction</option>
+                        </select>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div class="form-group">
+                            <label class="form-label">Cost of BUY (Cost Price)</label>
+                            <input type="number" step="0.01" name="p_buy" class="form-control" required placeholder="ETB">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cost of SELL (Retail Price)</label>
+                            <input type="number" step="0.01" name="p_sell" class="form-control" required placeholder="ETB">
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Cost of SELL (Retail Price)</label>
-                        <input type="number" step="0.01" name="p_sell" class="form-control" required placeholder="ETB">
+                        <label class="form-label">Total Product Stock Quantity</label>
+                        <input type="number" name="p_qty" class="form-control" required placeholder="Units count">
                     </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Total Product Stock Quantity</label>
-                    <input type="number" name="p_qty" class="form-control" required placeholder="Units count">
-                </div>
-                <button type="submit" class="btn btn-success">Upload Product to Gebeya</button>
-            </form>
+                    <button type="submit" class="btn btn-success">Upload Product to Gebeya</button>
+                </form>
+            </div>
         </div>
     </div>
-</div>
-{% endif %}
+    {% endif %}
 
-{% if current_user.is_authenticated and current_user.role == 'Admin' %}
-<div class="card">
-    <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#ea580c;">Administrative Database Ledgers</h3>
-    
-    <h5 style="margin-bottom:10px; color:#475569;">All System Orders History</h5>
-    <div class="table-responsive" style="margin-bottom:25px;">
-        <table>
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Buyer Username</th>
-                    <th>Product Purchased</th>
-                    <th>Quantity</th>
-                    <th>Total Transaction Price</th>
-                    <th>Transaction Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for o in all_orders %}
-                <tr>
-                    <td>{{ o.id }}</td>
-                    <td><strong>{{ o.buyer.username }}</strong></td>
-                    <td>{{ o.product_profile.product_name }}</td>
-                    <td>{{ o.quantity_bought }} units</td>
-                    <td><strong style="color:#16a34a;">{{ "{:,.2f}".format(o.total_price) }} ETB</strong></td>
-                    <td>{{ o.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center" style="color:#94a3b8; padding:20px;">No simulated transactional history verified inside system.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% if current_user.is_authenticated and current_user.role == 'Admin' %}
+    <div class="card">
+        <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#ea580c;">Administrative Database Ledgers</h3>
+        <h5 style="margin-bottom:10px; color:#475569;">All System Orders History</h5>
+        <div class="table-responsive" style="margin-bottom:25px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Buyer Username</th>
+                        <th>Product Purchased</th>
+                        <th>Quantity</th>
+                        <th>Total Transaction Price</th>
+                        <th>Transaction Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in all_orders %}
+                    <tr>
+                        <td>{{ o.id }}</td>
+                        <td><strong>{{ o.buyer.username }}</strong></td>
+                        <td>{{ o.product_profile.product_name }}</td>
+                        <td>{{ o.quantity_bought }} units</td>
+                        <td><strong style="color:#16a34a;">{{ "{:,.2f}".format(o.total_price) }} ETB</strong></td>
+                        <td>{{ o.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center" style="color:#94a3b8; padding:20px;">No simulated transactional history verified inside system.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <h5 style="margin-bottom:10px; color:#475569;">System Clerk Directory</h5>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Username</th>
+                        <th>Clearance Authorization Role</th>
+                        <th>Administrative Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in user_list %}
+                    <tr>
+                        <td>{{ u.id }}</td>
+                        <td><strong>{{ u.username }}</strong></td>
+                        <td><span class="role-badge" style="background:{{ '#ea580c' if u.role == 'Admin' else '#64748b' }};color:white;">{{ u.role }}</span></td>
+                        <td>
+                            {% if u.id != current_user.id %}
+                            <a href="/delete_system_user/{{ u.id }}" class="btn btn-danger btn-sm">Purge Account</a>
+                            {% else %}
+                            <span style="color:#94a3b8; font-style:italic;">Active Session</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    <h5 style="margin-bottom:10px; color:#475569;">System Clerk Directory</h5>
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>User ID</th>
-                    <th>Username</th>
-                    <th>Clearance Authorization Role</th>
-                    <th>Administrative Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in user_list %}
-                <tr>
-                    <td>{{ u.id }}</td>
-                    <td><strong>{{ u.username }}</strong></td>
-                    <td><span class="role-badge" style="background:{{ '#ea580c' if u.role == 'Admin' else '#64748b' }};color:white;">{{ u.role }}</span></td>
-                    <td>
-                        {% if u.id != current_user.id %}
-                        <a href="/delete_system_user/{{ u.id }}" class="btn btn-danger btn-sm">Purge Account</a>
-                        {% else %}
-                        <span style="color:#94a3b8; font-style:italic;">Active Session</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
+    {% endif %}
+    {% endblock %}
+    """, total_users=total_users, total_products=total_products, total_orders=total_orders, product_list=product_list, business_list=business_list, user_list=user_list, all_orders=all_orders, search_q=search_q, category_filter=category_filter, my_businesses=my_businesses)
 
-{% endblock %}
-"""), total_users=total_users, total_products=total_products, total_orders=total_orders, product_list=product_list, business_list=business_list, user_list=user_list, all_orders=all_orders, search_q=search_q, category_filter=category_filter, my_businesses=my_businesses)
-
-
-# ==========================================
-# TRANSACTION & UPDATE LOGIC ENDPOINTS
-# ==========================================
 @app.route('/add_merchant_business', methods=['POST'])
 @login_required
 def add_merchant_business():
@@ -668,7 +635,6 @@ def logout():
     flash('Logged out cleanly from platform workspace.', 'success')
     return redirect(url_for('login'))
 
-# Automated initialization logic execution sequence
 with app.app_context():
     db.create_all()
     try:
