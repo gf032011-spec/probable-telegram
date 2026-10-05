@@ -35,8 +35,31 @@ BASE_LAYOUT = """
 <html>
 <head>
     <title>Cloud Web Application</title>
-    <link rel="stylesheet" href="https://cloudflare.com">
+    <style>
+        body { background-color: #f0f2f5; font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; padding-top: 60px; color: #333333; }
+        .card { background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 420px; border: 1px solid #e3e6ea; }
+        .text-center { text-align: center; }
+        .mb-3 { margin-bottom: 1rem; }
+        .mb-4 { margin-bottom: 1.5rem; }
+        .mt-3 { margin-top: 1rem; }
+        .mt-4 { margin-top: 1.5rem; }
+        .w-100 { width: 100%; }
+        .font-weight-bold { font-weight: bold; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.95rem; }
+        .form-control, .form-select { display: block; width: 100%; padding: 0.5rem 0.75rem; font-size: 1rem; border: 1px solid #cccccc; border-radius: 6px; box-sizing: border-box; margin-bottom: 1rem; }
+        .btn { display: inline-block; font-weight: 600; text-align: center; cursor: pointer; padding: 0.6rem 1.2rem; font-size: 1rem; border-radius: 6px; border: 1px solid transparent; text-decoration: none; box-sizing: border-box; width: 100%; }
+        .btn-primary { color: #ffffff; background-color: #007bff; }
+        .btn-success { color: #ffffff; background-color: #28a745; }
+        .btn-danger { color: #ffffff; background-color: #dc3545; }
+        .alert { padding: 0.75rem 1.25rem; margin-bottom: 1rem; border: 1px solid transparent; border-radius: 6px; font-weight: 500; }
+        .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+        .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+        table { width: 100%; margin-top: 1rem; border-collapse: collapse; background: #ffffff; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #dee2e6; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+    </style>
 </head>
+
 <body class="bg-light">
     <div class="container mt-5" style="max-width: 600px;">
         {% with messages = get_flashed_messages(with_categories=true) %}
