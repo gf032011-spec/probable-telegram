@@ -153,9 +153,9 @@ if subscriber_df.empty:
         "SELECT * FROM accounts WHERE phone_number='0900223344'", conn
     )
 
-subscriber_name = subscriber_df["subscriber_name"].iloc
-wallet_balance = float(subscriber_df["wallet_balance"].iloc)
-security_pin_stored = str(subscriber_df["security_pin"].iloc)
+subscriber_name = subscriber_df["subscriber_name"].iloc[0]
+wallet_balance = float(subscriber_df["wallet_balance"].iloc[0])
+security_pin_stored = str(subscriber_df["security_pin"].iloc[0])
 
 # =====================================================================
 # 👤 PROFILE PANEL (SIDEBAR ENVIRONMENT MODULE)
