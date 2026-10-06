@@ -259,11 +259,12 @@ def dashboard():
     user_list = db.session.scalars(db.select(User)).all()
     all_orders = db.session.scalars(db.select(Order)).all()
 
-    # Safe role evaluations for Jinja context
-    is_admin = current_user.is_authenticated and getattr(current_user, 'role', None) == 'Admin'
-    is_merchant_or_admin = current_user.is_authenticated and getattr(current_user, 'role', None) in ['Merchant', 'Admin']
+    # Safe boolean checks passed directly into template
+    is_authenticated = current_user.is_authenticated
+    is_admin = is_authenticated and getattr(current_user, 'role', None) == 'Admin'
+    is_merchant_or_admin = is_authenticated and getattr(current_user, 'role', None) in ['Merchant', 'Admin']
 
-    if current_user.is_authenticated:
+    if is_authenticated:
         if is_admin:
             my_businesses = business_list
         else:
@@ -330,7 +331,7 @@ def dashboard():
                     {% endif %}
                     <div class="product-price">{{ p.cost_sell | round(2) }} ETB</div>
                     <div style="margin-top:auto; padding-top:15px; border-top:1px solid #f1f5f9;">
-                        {% if current_user.is_authenticated %}
+                        {% if is_authenticated %}
                             {% if is_admin %}
                                 <a href="{{ url_for('edit_product_page', id=p.id) }}" class="btn btn-primary btn-sm" style="background:#ea580c; display:block; text-align:center; margin-bottom:5px;">Edit & Update Profile</a>
                                 <a href="{{ url_for('delete_product', id=p.id) }}" class="btn btn-danger btn-sm" style="display:block; text-align:center;">Delete Product</a>
@@ -371,7 +372,7 @@ def dashboard():
                         <input type="text" name="b_phone" class="form-control" required placeholder="e.g. +251...">
                     </div>
                     <input type="hidden" name="b_sector" value="Retail Store Marketplace">
-                    <input type="hidden" name="b_owner" value="{{ current_user.username }}">
+                    <input type="hidden" name="b_owner" value="{{ current_user.username if is_authenticated else '' }}">
                     <button type="submit" class="btn btn-primary">Register Store Profile</button>
                 </form>
             </div>
@@ -474,7 +475,7 @@ def dashboard():
                         <td><strong>{{ u.username }}</strong></td>
                         <td><span class="role-badge" style="background:{{ '#ea580c' if u.role == 'Admin' else '#64748b' }};color:white;">{{ u.role }}</span></td>
                         <td>
-                            {% if u.id != current_user.id %}
+                            {% if is_authenticated and u.id != current_user.id %}
                             <a href="{{ url_for('delete_system_user', id=u.id) }}" class="btn btn-danger btn-sm">Purge Account</a>
                             {% else %}
                             <span style="color:#94a3b8; font-style:italic;">Active Session</span>
@@ -488,7 +489,7 @@ def dashboard():
     </div>
     {% endif %}
     {% endblock %}
-    """, total_users=total_users, total_products=total_products, total_orders=total_orders, product_list=product_list, business_list=business_list, user_list=user_list, all_orders=all_orders, search_q=search_q, category_filter=category_filter, my_businesses=my_businesses, is_admin=is_admin, is_merchant_or_admin=is_merchant_or_admin)
+    """, total_users=total_users, total_products=total_products, total_orders=total_orders, product_list=product_list, business_list=business_list, user_list=user_list, all_orders=all_orders, search_q=search_q, category_filter=category_filter, my_businesses=my_businesses, is_authenticated=is_authenticated, is_admin=is_admin, is_merchant_or_admin=is_merchant_or_admin)
 
 @app.route('/add_merchant_business', methods=['POST'])
 @login_required
