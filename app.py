@@ -283,7 +283,7 @@ def dashboard():
         </div>
     </div>
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; justify-space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
             <h3 style="margin:0; font-weight:800; color:#0f172a;">Zemene Gebeya Market Showcase</h3>
             <p style="margin:0; color:#64748b; font-weight:600;">Interactive visual stock listings directory</p>
         </div>
@@ -319,11 +319,11 @@ def dashboard():
                     <div class="product-meta">Total Stock Available: <strong style="color:#0f172a;">{{ p.quantity }} units</strong></div>
                     {% if current_user.is_authenticated and current_user.role == 'Admin' %}
                         <div style="background:#f1f5f9; padding:8px; border-radius:6px; margin:8px 0; font-size:0.8rem;">
-                            <div>Buying Cost: <strong>{{ "{:,.2f}".format(p.cost_buy) }} ETB</strong></div>
-                            <div>Selling Cost: <strong>{{ "{:,.2f}".format(p.cost_sell) }} ETB</strong></div>
+                            <div>Buying Cost: <strong>{{ p.cost_buy | round(2) }} ETB</strong></div>
+                            <div>Selling Cost: <strong>{{ p.cost_sell | round(2) }} ETB</strong></div>
                         </div>
                     {% endif %}
-                    <div class="product-price">{{ "{:,.2f}".format(p.cost_sell) }} ETB</div>
+                    <div class="product-price">{{ p.cost_sell | round(2) }} ETB</div>
                     <div style="margin-top:auto; padding-top:15px; border-top:1px solid #f1f5f9;">
                         {% if current_user.is_authenticated %}
                             {% if current_user.role == 'Admin' %}
@@ -440,8 +440,8 @@ def dashboard():
                         <td><strong>{{ o.buyer.username if o.buyer else 'Deleted User' }}</strong></td>
                         <td>{{ o.product_profile.product_name if o.product_profile else 'Deleted Product' }}</td>
                         <td>{{ o.quantity_bought }} units</td>
-                        <td><strong style="color:#16a34a;">{{ "{:,.2f}".format(o.total_price) }} ETB</strong></td>
-                        <td>{{ o.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td><strong style="color:#16a34a;">{{ o.total_price | round(2) }} ETB</strong></td>
+                        <td>{{ o.order_date.strftime('%Y-%m-%d %H:%M') if o.order_date else 'N/A' }}</td>
                     </tr>
                     {% else %}
                     <tr>
@@ -554,7 +554,7 @@ def buy_product(id):
             new_order = Order(user_id=current_user.id, product_id=target_product.id, quantity_bought=qty_to_buy, total_price=tot_price)
             db.session.add(new_order)
             db.session.commit()
-            flash(f'Transaction complete! Purchased {qty_to_buy} units of {target_product.product_name} for {tot_price:.2f} ETB.', 'success')
+            flash(f'Transaction complete! Purchased {qty_to_buy} units of {target_product.product_name}.', 'success')
         except Exception:
             db.session.rollback()
             flash('Checkout operational crash.', 'error')
