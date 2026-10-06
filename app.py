@@ -137,6 +137,15 @@ BASE_LAYOUT = """
 """
 @app.route('/')
 def index():
+    try:
+        db.drop_all()
+        db.create_all()
+        if not User.query.filter_by(username='admin').first():
+            admin_user = User(username='admin', password=generate_password_hash('admin123'), role='Admin')
+            db.session.add(admin_user)
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
     return redirect(url_for('dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -155,7 +164,6 @@ def login():
                 flash('Invalid username or password', 'error')
         except Exception:
             flash('Database configuration reload. Please try again.', 'error')
-            
     return render_template_string(BASE_LAYOUT + """
     <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
         <div class="card" style="max-width: 420px;">
@@ -195,7 +203,6 @@ def register():
                 return redirect(url_for('login'))
         except Exception:
             flash('Registration terminal routing error.', 'error')
-            
     return render_template_string(BASE_LAYOUT + """
     <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
         <div class="card" style="max-width: 420px;">
@@ -248,6 +255,7 @@ def dashboard():
             my_businesses = Business.query.filter_by(user_id=current_user.id).all()
     else:
         my_businesses = []
+
     return render_template_string(BASE_LAYOUT + """
     {% block content %}
     <div class="stats-grid">
@@ -627,20 +635,6 @@ def logout():
     logout_user()
     flash('Logged out cleanly from platform workspace.', 'success')
     return redirect(url_for('login'))
-
-with app.app_context():
-    db.create_all()
-    try:
-        if not User.query.filter_by(username='admin').first():
-            admin_user = User(
-                username='admin', 
-                password=generate_password_hash('admin123'), 
-                role='Admin'
-            )
-            db.session.add(admin_user)
-            db.session.commit()
-    except Exception:
-        db.session.rollback()
 
 if __name__ == '__main__':
     app.run(debug=True)
