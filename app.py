@@ -138,7 +138,6 @@ BASE_LAYOUT = """
 @app.route('/')
 def index():
     try:
-        db.drop_all()
         db.create_all()
         if not User.query.filter_by(username='admin').first():
             admin_user = User(username='admin', password=generate_password_hash('admin123'), role='Admin')
@@ -305,7 +304,7 @@ def dashboard():
                 <div class="product-info">
                     <span style="font-size:0.75rem; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px; color:#0284c7;">{{ p.category }}</span>
                     <h4 class="product-title">{{ p.product_name }}</h4>
-                    <div class="product-meta">Shop Vendor: <strong>{{ p.associated_shop.business_name }}</strong></div>
+                    <div class="product-meta">Shop Vendor: <strong>{{ p.associated_shop.business_name if p.associated_shop else 'N/A' }}</strong></div>
                     <div class="product-meta">Total Stock Available: <strong style="color:#0f172a;">{{ p.quantity }} units</strong></div>
                     {% if current_user.is_authenticated and current_user.role == 'Admin' %}
                         <div style="background:#f1f5f9; padding:8px; border-radius:6px; margin:8px 0; font-size:0.8rem;">
@@ -586,7 +585,7 @@ def update_product(id):
     try:
         p = Product.query.get_or_404(id)
         p.product_name = request.form.get('p_name')
-        p.category = request.form.get('p_cat')
+        p.category = request.form.get('p_category')
         p.quantity = int(request.form.get('p_qty', 0))
         p.cost_buy = float(request.form.get('p_buy', 0.0))
         p.cost_sell = float(request.form.get('p_sell', 0.0))
