@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zemene Gebeya - Trade Platform</title>
+    <style>
+        body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #1e293b; }
+        .navbar { background: #0f172a; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .navbar h2 { margin: 0; font-size: 1.4rem; font-weight: 800; color: #38bdf8; letter-spacing: -0.5px; }
+        .nav-links { display: flex; align-items: center; gap: 20px; }
+        .nav-links a { color: #94a3b8; text-decoration: none; font-weight: 600; font-size: 0.95rem; transition: color 0.2s; }
+        .nav-links a:hover { color: white; }
+        .role-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; background: #38bdf8; color: #0f172a; }
+        .main-container { max-width: 1250px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
+        .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; width: 100%; box-sizing: border-box; margin-bottom: 30px; }
+        .text-center { text-align: center; }
+        .form-group { margin-bottom: 1.25rem; text-align: left; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: #475569; }
+        .form-control, .form-select { display: block; width: 100%; padding: 0.65rem 0.75rem; font-size: 0.95rem; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; background-color: #f8fafc; }
+        .btn { display: inline-block; font-weight: 700; text-align: center; cursor: pointer; padding: 0.7rem 1.5rem; font-size: 0.95rem; border-radius: 8px; border: 1px solid transparent; text-decoration: none; box-sizing: border-box; width: 100%; transition: all 0.2s; }
+        .btn-primary { color: #ffffff; background-color: #0284c7; }
+        .btn-success { color: #ffffff; background-color: #16a34a; }
+        .btn-danger { color: #ffffff; background-color: #dc2626; }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 6px; width: auto; }
+        .alert { padding: 1rem 1.25rem; margin-bottom: 1.5rem; border-radius: 8px; font-weight: 500; font-size: 0.95rem; }
+        .alert-danger { color: #991b1b; background-color: #fee2e2; border: 1px solid #fca5a5; }
+        .alert-success { color: #166534; background-color: #dcfce7; border: 1px solid #86efac; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .stats-grid .stat-box { background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .stats-grid .stat-box h3 { margin: 0 0 5px 0; font-size: 2.2rem; color: #0284c7; font-weight: 800; }
+        .stats-grid .stat-box p { margin: 0; color: #64748b; font-weight: 600; font-size: 0.95rem; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 30px; margin-top: 20px; }
+        .product-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: transform 0.2s; }
+        .product-card:hover { transform: translateY(-4px); }
+        .product-img { width: 100%; height: 180px; object-fit: cover; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: #94a3b8; }
+        .product-info { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
+        .product-title { margin: 0 0 8px 0; font-size: 1.15rem; font-weight: 700; color: #0f172a; }
+        .product-meta { font-size: 0.85rem; color: #64748b; margin-bottom: 6px; }
+        .product-price { font-size: 1.3rem; font-weight: 800; color: #16a34a; margin: 12px 0; }
+        table { width: 100%; border-collapse: collapse; background: #ffffff; margin-top: 10px; border-radius: 10px; overflow: hidden; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+        th { background-color: #f1f5f9; font-weight: 700; color: #475569; }
+        .table-responsive { width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: white; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h2>Zemene Gebeya ዘመነ ገበያ</h2>
+        <div class="nav-links">
+            {% if current_user.is_authenticated %}
+                <span>User: <strong>{{ current_user.username }}</strong> <span class="role-badge">{{ current_user.role }}</span></span>
+                <a href="{{ url_for('dashboard') }}">Dashboard Workspace</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login Portal</a>
+                <a href="{{ url_for('register') }}">Register Portal</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="main-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category=='error' else 'success' }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
