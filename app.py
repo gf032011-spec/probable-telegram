@@ -243,9 +243,9 @@ def dashboard():
     search_q = request.args.get('search', '').strip()
     category_filter = request.args.get('category', '').strip()
 
-    total_users = db.session.scalar(db.select(db.func.count(User.id)))
-    total_products = db.session.scalar(db.select(db.func.count(Product.id)))
-    total_orders = db.session.scalar(db.select(db.func.count(Order.id)))
+    total_users = db.session.scalar(db.select(db.func.count(User.id))) or 0
+    total_products = db.session.scalar(db.select(db.func.count(Product.id))) or 0
+    total_orders = db.session.scalar(db.select(db.func.count(Order.id))) or 0
 
     p_stmt = db.select(Product)
     if search_q:
@@ -259,7 +259,7 @@ def dashboard():
     all_orders = db.session.scalars(db.select(Order)).all()
 
     if current_user.is_authenticated:
-        if current_user.role == 'Admin':
+        if getattr(current_user, 'role', '') == 'Admin':
             my_businesses = business_list
         else:
             my_businesses = db.session.scalars(db.select(Business).filter_by(user_id=current_user.id)).all()
@@ -315,7 +315,7 @@ def dashboard():
                 <div class="product-info">
                     <span style="font-size:0.75rem; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px; color:#0284c7;">{{ p.category }}</span>
                     <h4 class="product-title">{{ p.product_name }}</h4>
-                    <div class="product-meta">Shop Vendor: <strong>{{ p.associated_shop.business_name }}</strong></div>
+                    <div class="product-meta">Shop Vendor: <strong>{{ p.associated_shop.business_name if p.associated_shop else 'N/A' }}</strong></div>
                     <div class="product-meta">Total Stock Available: <strong style="color:#0f172a;">{{ p.quantity }} units</strong></div>
                     {% if current_user.is_authenticated and current_user.role == 'Admin' %}
                         <div style="background:#f1f5f9; padding:8px; border-radius:6px; margin:8px 0; font-size:0.8rem;">
@@ -346,7 +346,7 @@ def dashboard():
             {% endfor %}
         </div>
     </div>
-    {% if current_user.is_authenticated and (current_user.role == 'Merchant' or current_user.role == 'Admin') %}
+    {% if current_user.is_authenticated and current_user.role in ['Merchant', 'Admin'] %}
     <div class="card">
         <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#0f172a;">Merchant Businessman Console</h3>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:30px; margin-top:20px;">
@@ -522,7 +522,7 @@ def add_merchant_product():
         return redirect(url_for('dashboard'))
 
     biz = db.session.get(Business, int(biz_id))
-    if not biz or (biz.user_id != current_user.id and current_user.role != 'Admin'):
+    if not biz or (biz.user_id != current_user.id and getattr(current_user, 'role', '') != 'Admin'):
         flash('Unauthorized business specified.', 'error')
         return redirect(url_for('dashboard'))
 
@@ -563,7 +563,7 @@ def buy_product(id):
 @app.route('/edit_product_page/<int:id>')
 @login_required
 def edit_product_page(id):
-    if current_user.role != 'Admin':
+    if getattr(current_user, 'role', '') != 'Admin':
         flash('Unauthorized permissions.', 'error')
         return redirect(url_for('dashboard'))
     p = db.session.get(Product, id)
@@ -606,7 +606,7 @@ def edit_product_page(id):
 @app.route('/update_product/<int:id>', methods=['POST'])
 @login_required
 def update_product(id):
-    if current_user.role != 'Admin':
+    if getattr(current_user, 'role', '') != 'Admin':
         flash('Unauthorized entry permissions level.', 'error')
         return redirect(url_for('dashboard'))
     try:
@@ -630,7 +630,7 @@ def update_product(id):
 @app.route('/delete_product/<int:id>')
 @login_required
 def delete_product(id):
-    if current_user.role != 'Admin':
+    if getattr(current_user, 'role', '') != 'Admin':
         flash('Unauthorized permissions level.', 'error')
         return redirect(url_for('dashboard'))
     try:
@@ -649,7 +649,7 @@ def delete_product(id):
 @app.route('/delete_system_user/<int:id>')
 @login_required
 def delete_system_user(id):
-    if current_user.role != 'Admin':
+    if getattr(current_user, 'role', '') != 'Admin':
         flash('Unauthorized administration clearance.', 'error')
         return redirect(url_for('dashboard'))
     try:
