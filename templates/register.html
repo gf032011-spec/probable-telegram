@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="card" style="max-width: 420px;">
+        <h3 class="text-center" style="margin-top:0;font-weight:800;font-size:1.5rem;color:#0f172a;">Create Market Account</h3>
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" required placeholder="Create username">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" required placeholder="Create password">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Account Profile Type</label>
+                <select name="role" class="form-select">
+                    <option value="Customer">Standard Customer (Buy Products)</option>
+                    <option value="Merchant">Merchant Businessman (Register Products)</option>
+                    <option value="Admin">System Administrator (Edit & Update All)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-success" style="width:100%; margin-top:10px;">Sign Up</button>
+        </form>
+        <div class="text-center" style="margin-top: 20px; font-size:0.9rem;">
+            <a href="{{ url_for('login') }}" style="color:#0284c7;text-decoration:none;font-weight:700;">Back to Login</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
