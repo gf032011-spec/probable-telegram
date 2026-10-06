@@ -1,29 +1,30 @@
 import os
-import io
-from datetime import datetime
-from flask import Flask, render_template_string, redirect, url_for, request, flash, send_file
+from datetime import datetime, timezone
+from flask import Flask, render_template_string, redirect, url_for, request, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-import openpyxl
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'zemene-gebeya-super-secret-key-112233')
-
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///online_database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+# --- DATABASE MODELS ---
+
 class User(UserMixin, db.Model):
     __tablename__ = 'Users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)  
     role = db.Column(db.String(20), nullable=False, default='Customer')
+    
     businesses = db.relationship('Business', backref='registrar', lazy=True, cascade="all, delete-orphan")
-    orders = db.relationship('Order', backref='buyer', lazy=True)
+    orders = db.relationship('Order', backref='buyer', lazy=True, cascade="all, delete-orphan")
 
 class Business(db.Model):
     __tablename__ = 'Businesses'
@@ -33,9 +34,11 @@ class Business(db.Model):
     sector = db.Column(db.String(100), nullable=False)
     owner_name = db.Column(db.String(150), nullable=False)
     phone_number = db.Column(db.String(50), nullable=False)
-    registration_date = db.Column(db.DateTime, default=datetime.utcnow)
+    registration_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     user_id = db.Column(db.Integer, db.ForeignKey('Users.id'), nullable=False)
+    
     products = db.relationship('Product', backref='associated_shop', lazy=True, cascade="all, delete-orphan")
+
 class Product(db.Model):
     __tablename__ = 'Products'
     id = db.Column(db.Integer, primary_key=True)
@@ -45,9 +48,10 @@ class Product(db.Model):
     cost_buy = db.Column(db.Float, nullable=False, default=0.0)
     cost_sell = db.Column(db.Float, nullable=False, default=0.0)
     image_url = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     business_id = db.Column(db.Integer, db.ForeignKey('Businesses.id'), nullable=False)
-    order_items = db.relationship('Order', backref='product_profile', lazy=True)
+    
+    order_items = db.relationship('Order', backref='product_profile', lazy=True, cascade="all, delete-orphan")
 
 class Order(db.Model):
     __tablename__ = 'Orders'
@@ -56,11 +60,14 @@ class Order(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('Products.id'), nullable=False)
     quantity_bought = db.Column(db.Integer, nullable=False)
     total_price = db.Column(db.Float, nullable=False)
-    order_date = db.Column(db.DateTime, default=datetime.utcnow)
+    order_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
+
+# --- TEMPLATES ---
+
 BASE_LAYOUT = """
 <!DOCTYPE html>
 <html lang="en">
@@ -117,8 +124,8 @@ BASE_LAYOUT = """
                 <a href="{{ url_for('dashboard') }}">Dashboard Workspace</a>
                 <a href="{{ url_for('logout') }}">Logout</a>
             {% else %}
-                <a href="/login">Login Portal</a>
-                <a href="/register">Register Portal</a>
+                <a href="{{ url_for('login') }}">Login Portal</a>
+                <a href="{{ url_for('register') }}">Register Portal</a>
             {% endif %}
         </div>
     </div>
@@ -135,16 +142,11 @@ BASE_LAYOUT = """
 </body>
 </html>
 """
+
+# --- ROUTES ---
+
 @app.route('/')
 def index():
-    try:
-        db.create_all()
-        if not User.query.filter_by(username='admin').first():
-            admin_user = User(username='admin', password=generate_password_hash('admin123'), role='Admin')
-            db.session.add(admin_user)
-            db.session.commit()
-    except Exception:
-        db.session.rollback()
     return redirect(url_for('dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -155,14 +157,15 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         try:
-            user = User.query.filter_by(username=username).first()
+            user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
             if user and check_password_hash(user.password, password):
                 login_user(user)
                 return redirect(url_for('dashboard'))
             else:
                 flash('Invalid username or password', 'error')
         except Exception:
-            flash('Database configuration reload. Please try again.', 'error')
+            flash('Database authentication error. Please try again.', 'error')
+            
     return render_template_string(BASE_LAYOUT + """
     <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
         <div class="card" style="max-width: 420px;">
@@ -184,6 +187,7 @@ def login():
         </div>
     </div>
     """)
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -191,7 +195,7 @@ def register():
         password = request.form.get('password')
         role = request.form.get('role', 'Customer')
         try:
-            existing_user = User.query.filter_by(username=username).first()
+            existing_user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
             if existing_user:
                 flash('Username already registered in system matrix!', 'error')
             else:
@@ -201,7 +205,9 @@ def register():
                 flash('Account created successfully! Please sign in.', 'success')
                 return redirect(url_for('login'))
         except Exception:
+            db.session.rollback()
             flash('Registration terminal routing error.', 'error')
+            
     return render_template_string(BASE_LAYOUT + """
     <div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
         <div class="card" style="max-width: 420px;">
@@ -219,7 +225,7 @@ def register():
                     <label class="form-label">Account Profile Type</label>
                     <select name="role" class="form-select">
                         <option value="Customer">Standard Customer (Buy Products)</option>
-                        <option value="Merchant">Business Businessman (Register Products)</option>
+                        <option value="Merchant">Merchant Businessman (Register Products)</option>
                         <option value="Admin">System Administrator (Edit & Update All)</option>
                     </select>
                 </div>
@@ -231,27 +237,32 @@ def register():
         </div>
     </div>
     """)
+
 @app.route('/dashboard')
 def dashboard():
     search_q = request.args.get('search', '').strip()
     category_filter = request.args.get('category', '').strip()
-    total_users = User.query.count()
-    total_products = Product.query.count()
-    total_orders = Order.query.count()
-    p_query = Product.query
+
+    total_users = db.session.scalar(db.select(db.func.count(User.id)))
+    total_products = db.session.scalar(db.select(db.func.count(Product.id)))
+    total_orders = db.session.scalar(db.select(db.func.count(Order.id)))
+
+    p_stmt = db.select(Product)
     if search_q:
-        p_query = p_query.filter(Product.product_name.contains(search_q))
+        p_stmt = p_stmt.filter(Product.product_name.contains(search_q))
     if category_filter:
-        p_query = p_query.filter_by(category=category_filter)
-    product_list = p_query.all()
-    business_list = Business.query.all()
-    user_list = User.query.all()
-    all_orders = Order.query.all()
+        p_stmt = p_stmt.filter_by(category=category_filter)
+    
+    product_list = db.session.scalars(p_stmt).all()
+    business_list = db.session.scalars(db.select(Business)).all()
+    user_list = db.session.scalars(db.select(User)).all()
+    all_orders = db.session.scalars(db.select(Order)).all()
+
     if current_user.is_authenticated:
         if current_user.role == 'Admin':
-            my_businesses = Business.query.all()
+            my_businesses = business_list
         else:
-            my_businesses = Business.query.filter_by(user_id=current_user.id).all()
+            my_businesses = db.session.scalars(db.select(Business).filter_by(user_id=current_user.id)).all()
     else:
         my_businesses = []
 
@@ -276,7 +287,7 @@ def dashboard():
             <h3 style="margin:0; font-weight:800; color:#0f172a;">Zemene Gebeya Market Showcase</h3>
             <p style="margin:0; color:#64748b; font-weight:600;">Interactive visual stock listings directory</p>
         </div>
-        <form method="GET" action="/dashboard" style="display:flex; gap:15px; margin-bottom:25px; align-items:flex-end; flex-wrap:wrap;">
+        <form method="GET" action="{{ url_for('dashboard') }}" style="display:flex; gap:15px; margin-bottom:25px; align-items:flex-end; flex-wrap:wrap;">
             <div style="flex:2; min-width:240px;">
                 <label class="form-label">Look Up Product</label>
                 <input type="text" name="search" class="form-control" value="{{ search_q }}" placeholder="Search products by name...">
@@ -294,7 +305,7 @@ def dashboard():
             </div>
             <div style="display:flex; gap:10px;">
                 <button type="submit" class="btn btn-primary" style="padding:0.65rem 1.5rem;">Search</button>
-                <a href="/dashboard" class="btn btn-danger" style="padding:0.65rem 1rem; background-color:#64748b;">Reset</a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-danger" style="padding:0.65rem 1rem; background-color:#64748b;">Reset</a>
             </div>
         </form>
         <div class="product-grid">
@@ -304,7 +315,7 @@ def dashboard():
                 <div class="product-info">
                     <span style="font-size:0.75rem; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px; color:#0284c7;">{{ p.category }}</span>
                     <h4 class="product-title">{{ p.product_name }}</h4>
-                    <div class="product-meta">Shop Vendor: <strong>{{ p.associated_shop.business_name if p.associated_shop else 'N/A' }}</strong></div>
+                    <div class="product-meta">Shop Vendor: <strong>{{ p.associated_shop.business_name }}</strong></div>
                     <div class="product-meta">Total Stock Available: <strong style="color:#0f172a;">{{ p.quantity }} units</strong></div>
                     {% if current_user.is_authenticated and current_user.role == 'Admin' %}
                         <div style="background:#f1f5f9; padding:8px; border-radius:6px; margin:8px 0; font-size:0.8rem;">
@@ -316,16 +327,16 @@ def dashboard():
                     <div style="margin-top:auto; padding-top:15px; border-top:1px solid #f1f5f9;">
                         {% if current_user.is_authenticated %}
                             {% if current_user.role == 'Admin' %}
-                                <a href="/edit_product_page/{{ p.id }}" class="btn btn-primary btn-sm" style="background:#ea580c; display:block; text-align:center; margin-bottom:5px;">Edit & Update Profile</a>
-                                <a href="/delete_product/{{ p.id }}" class="btn btn-danger btn-sm" style="display:block; text-align:center;">Delete Product</a>
+                                <a href="{{ url_for('edit_product_page', id=p.id) }}" class="btn btn-primary btn-sm" style="background:#ea580c; display:block; text-align:center; margin-bottom:5px;">Edit & Update Profile</a>
+                                <a href="{{ url_for('delete_product', id=p.id) }}" class="btn btn-danger btn-sm" style="display:block; text-align:center;">Delete Product</a>
                             {% else %}
-                                <form action="/buy_product/{{ p.id }}" method="POST" style="display:flex; gap:5px;">
+                                <form action="{{ url_for('buy_product', id=p.id) }}" method="POST" style="display:flex; gap:5px;">
                                     <input type="number" name="buy_qty" class="form-control" value="1" min="1" max="{{ p.quantity }}" style="width:70px; margin-bottom:0; padding:0.4rem;">
                                     <button type="submit" class="btn btn-success btn-sm" style="flex-grow:1;">Buy Now</button>
                                 </form>
                             {% endif %}
                         {% else %}
-                            <a href="/login" class="btn btn-primary btn-sm" style="display:block; text-align:center; background:#475569;">Sign In to Register / Buy</a>
+                            <a href="{{ url_for('login') }}" class="btn btn-primary btn-sm" style="display:block; text-align:center; background:#475569;">Sign In to Register / Buy</a>
                         {% endif %}
                     </div>
                 </div>
@@ -337,11 +348,11 @@ def dashboard():
     </div>
     {% if current_user.is_authenticated and (current_user.role == 'Merchant' or current_user.role == 'Admin') %}
     <div class="card">
-        <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#0f172a;">Business Businessman Console</h3>
+        <h3 style="margin-top:0; border-bottom:2px solid #f1f5f9; padding-bottom:10px; color:#0f172a;">Merchant Businessman Console</h3>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:30px; margin-top:20px;">
             <div>
                 <h4 style="margin-top:0; color:#475569;">Step 1: Register Shop Profile</h4>
-                <form action="/add_merchant_business" method="POST">
+                <form action="{{ url_for('add_merchant_business') }}" method="POST">
                     <div class="form-group">
                         <label class="form-label">Shop / Businessman Name</label>
                         <input type="text" name="b_name" class="form-control" required placeholder="e.g. Al-Amudi Technology Shop">
@@ -361,7 +372,7 @@ def dashboard():
             </div>
             <div>
                 <h4 style="margin-top:0; color:#475569;">Step 2: Add Inventory Product</h4>
-                <form action="/add_merchant_product" method="POST">
+                <form action="{{ url_for('add_merchant_product') }}" method="POST">
                     <div class="form-group">
                         <label class="form-label">Select Registered Shop</label>
                         <select name="p_business_id" class="form-select" required>
@@ -426,15 +437,15 @@ def dashboard():
                     {% for o in all_orders %}
                     <tr>
                         <td>{{ o.id }}</td>
-                        <td><strong>{{ o.buyer.username }}</strong></td>
-                        <td>{{ o.product_profile.product_name }}</td>
+                        <td><strong>{{ o.buyer.username if o.buyer else 'Deleted User' }}</strong></td>
+                        <td>{{ o.product_profile.product_name if o.product_profile else 'Deleted Product' }}</td>
                         <td>{{ o.quantity_bought }} units</td>
                         <td><strong style="color:#16a34a;">{{ "{:,.2f}".format(o.total_price) }} ETB</strong></td>
                         <td>{{ o.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center" style="color:#94a3b8; padding:20px;">No simulated transactional history verified inside system.</td>
+                        <td colspan="6" class="text-center" style="color:#94a3b8; padding:20px;">No transaction history found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -459,7 +470,7 @@ def dashboard():
                         <td><span class="role-badge" style="background:{{ '#ea580c' if u.role == 'Admin' else '#64748b' }};color:white;">{{ u.role }}</span></td>
                         <td>
                             {% if u.id != current_user.id %}
-                            <a href="/delete_system_user/{{ u.id }}" class="btn btn-danger btn-sm">Purge Account</a>
+                            <a href="{{ url_for('delete_system_user', id=u.id) }}" class="btn btn-danger btn-sm">Purge Account</a>
                             {% else %}
                             <span style="color:#94a3b8; font-style:italic;">Active Session</span>
                             {% endif %}
@@ -473,6 +484,7 @@ def dashboard():
     {% endif %}
     {% endblock %}
     """, total_users=total_users, total_products=total_products, total_orders=total_orders, product_list=product_list, business_list=business_list, user_list=user_list, all_orders=all_orders, search_q=search_q, category_filter=category_filter, my_businesses=my_businesses)
+
 @app.route('/add_merchant_business', methods=['POST'])
 @login_required
 def add_merchant_business():
@@ -482,7 +494,7 @@ def add_merchant_business():
     owner = request.form.get('b_owner')
     phone = request.form.get('b_phone')
     try:
-        duplicate = Business.query.filter_by(license_number=license).first()
+        duplicate = db.session.execute(db.select(Business).filter_by(license_number=license)).scalar_one_or_none()
         if duplicate:
             flash(f'Error: License {license} already registered!', 'error')
         else:
@@ -504,14 +516,21 @@ def add_merchant_product():
     buy = float(request.form.get('p_buy', 0.0))
     sell = float(request.form.get('p_sell', 0.0))
     qty = int(request.form.get('p_qty', 0))
+    
+    if not biz_id:
+        flash('Error: You must create and link a store folder first!', 'error')
+        return redirect(url_for('dashboard'))
+
+    biz = db.session.get(Business, int(biz_id))
+    if not biz or (biz.user_id != current_user.id and current_user.role != 'Admin'):
+        flash('Unauthorized business specified.', 'error')
+        return redirect(url_for('dashboard'))
+
     try:
-        if not biz_id:
-            flash('Error: You must create and link a store folder first!', 'error')
-        else:
-            new_prod = Product(product_name=name, category=cat, cost_buy=buy, cost_sell=sell, quantity=qty, business_id=int(biz_id))
-            db.session.add(new_prod)
-            db.session.commit()
-            flash(f'Product "{name}" added to showcase registry.', 'success')
+        new_prod = Product(product_name=name, category=cat, cost_buy=buy, cost_sell=sell, quantity=qty, business_id=int(biz_id))
+        db.session.add(new_prod)
+        db.session.commit()
+        flash(f'Product "{name}" added to showcase registry.', 'success')
     except Exception:
         db.session.rollback()
         flash('Inventory creation error mapping columns.', 'error')
@@ -521,7 +540,11 @@ def add_merchant_product():
 @login_required
 def buy_product(id):
     qty_to_buy = int(request.form.get('buy_qty', 1))
-    target_product = Product.query.get_or_404(id)
+    target_product = db.session.get(Product, id)
+    if not target_product:
+        flash('Product not found.', 'error')
+        return redirect(url_for('dashboard'))
+
     if target_product.quantity < qty_to_buy:
         flash(f'Insufficient marketplace quantities. Only {target_product.quantity} items left.', 'error')
     else:
@@ -531,7 +554,7 @@ def buy_product(id):
             new_order = Order(user_id=current_user.id, product_id=target_product.id, quantity_bought=qty_to_buy, total_price=tot_price)
             db.session.add(new_order)
             db.session.commit()
-            flash(f'Transaction complete! Purchased {qty_to_buy} units of {target_product.product_name} for {tot_price} ETB.', 'success')
+            flash(f'Transaction complete! Purchased {qty_to_buy} units of {target_product.product_name} for {tot_price:.2f} ETB.', 'success')
         except Exception:
             db.session.rollback()
             flash('Checkout operational crash.', 'error')
@@ -543,38 +566,42 @@ def edit_product_page(id):
     if current_user.role != 'Admin':
         flash('Unauthorized permissions.', 'error')
         return redirect(url_for('dashboard'))
-    p = Product.query.get_or_404(id)
-    return render_template_string(BASE_LAYOUT + f"""
+    p = db.session.get(Product, id)
+    if not p:
+        flash('Product not found.', 'error')
+        return redirect(url_for('dashboard'))
+
+    return render_template_string(BASE_LAYOUT + """
     <div class="card" style="max-width: 500px; margin: 40px auto;">
         <h3 style="margin-top:0; color:#ea580c;">Administrative Product Editor</h3>
-        <form action="/update_product/{p.id}" method="POST">
+        <form action="{{ url_for('update_product', id=p.id) }}" method="POST">
             <div class="form-group">
                 <label class="form-label">Product Name</label>
-                <input type="text" name="p_name" class="form-control" value="{p.product_name}" required>
+                <input type="text" name="p_name" class="form-control" value="{{ p.product_name }}" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Category</label>
-                <input type="text" name="p_cat" class="form-control" value="{p.category}" required>
+                <input type="text" name="p_cat" class="form-control" value="{{ p.category }}" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Stock Quantity Available</label>
-                <input type="number" name="p_qty" class="form-control" value="{p.quantity}" required>
+                <input type="number" name="p_qty" class="form-control" value="{{ p.quantity }}" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Cost of BUY (ETB)</label>
-                <input type="number" step="0.01" name="p_buy" class="form-control" value="{p.cost_buy}" required>
+                <input type="number" step="0.01" name="p_buy" class="form-control" value="{{ p.cost_buy }}" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Cost of SELL (ETB)</label>
-                <input type="number" step="0.01" name="p_sell" class="form-control" value="{p.cost_sell}" required>
+                <input type="number" step="0.01" name="p_sell" class="form-control" value="{{ p.cost_sell }}" required>
             </div>
             <div style="display:flex; gap:10px;">
                 <button type="submit" class="btn btn-success">Update Entry Data</button>
-                <a href="/dashboard" class="btn btn-danger" style="line-height:2.3; background:#64748b;">Cancel</a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-danger" style="line-height:2.3; background:#64748b;">Cancel</a>
             </div>
         </form>
     </div>
-    """)
+    """, p=p)
 
 @app.route('/update_product/<int:id>', methods=['POST'])
 @login_required
@@ -583,9 +610,13 @@ def update_product(id):
         flash('Unauthorized entry permissions level.', 'error')
         return redirect(url_for('dashboard'))
     try:
-        p = Product.query.get_or_404(id)
+        p = db.session.get(Product, id)
+        if not p:
+            flash('Product not found.', 'error')
+            return redirect(url_for('dashboard'))
+
         p.product_name = request.form.get('p_name')
-        p.category = request.form.get('p_category')
+        p.category = request.form.get('p_cat')
         p.quantity = int(request.form.get('p_qty', 0))
         p.cost_buy = float(request.form.get('p_buy', 0.0))
         p.cost_sell = float(request.form.get('p_sell', 0.0))
@@ -603,10 +634,13 @@ def delete_product(id):
         flash('Unauthorized permissions level.', 'error')
         return redirect(url_for('dashboard'))
     try:
-        p = Product.query.get_or_404(id)
-        db.session.delete(p)
-        db.session.commit()
-        flash('Product profile successfully dropped from marketplace.', 'success')
+        p = db.session.get(Product, id)
+        if p:
+            db.session.delete(p)
+            db.session.commit()
+            flash('Product profile successfully dropped from marketplace.', 'success')
+        else:
+            flash('Product not found.', 'error')
     except Exception:
         db.session.rollback()
         flash('Purge failure.', 'error')
@@ -619,10 +653,13 @@ def delete_system_user(id):
         flash('Unauthorized administration clearance.', 'error')
         return redirect(url_for('dashboard'))
     try:
-        u = User.query.get_or_404(id)
-        db.session.delete(u)
-        db.session.commit()
-        flash('User database matrix row removed.', 'success')
+        u = db.session.get(User, id)
+        if u:
+            db.session.delete(u)
+            db.session.commit()
+            flash('User database matrix row removed.', 'success')
+        else:
+            flash('User not found.', 'error')
     except Exception:
         db.session.rollback()
         flash('Purge failure.', 'error')
@@ -634,6 +671,23 @@ def logout():
     logout_user()
     flash('Logged out cleanly from platform workspace.', 'success')
     return redirect(url_for('login'))
+
+# --- APPLICATION INITIALIZATION ---
+
+with app.app_context():
+    db.create_all()
+    try:
+        admin_user = db.session.execute(db.select(User).filter_by(username='admin')).scalar_one_or_none()
+        if not admin_user:
+            admin_user = User(
+                username='admin', 
+                password=generate_password_hash('admin123'), 
+                role='Admin'
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 if __name__ == '__main__':
     app.run(debug=True)
